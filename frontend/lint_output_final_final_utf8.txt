@@ -1,0 +1,14 @@
+﻿
+> frontend@0.0.0 lint
+> eslint .
+
+
+C:\xampp\htdocs\GS-Intranet\frontend\src\context\AuthContext.jsx
+  3:14  error  Fast refresh only works when a file only exports components. Move your React context(s) to a separate file  react-refresh/only-export-components
+
+C:\xampp\htdocs\GS-Intranet\frontend\src\pages\Feed.jsx
+  66:16  error  'error' is defined but never used  no-unused-vars
+  86:14  error  'error' is defined but never used  no-unused-vars
+
+Γ£û 3 problems (3 errors, 0 warnings)
+

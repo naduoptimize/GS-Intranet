@@ -1,0 +1,391 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-brand-red: #C8102E;
+  --color-brand-red-dark: #A30D25;
+  --color-brand-red-light: #FDECEF;
+  --color-sidebar-dark: #A30D25;
+  --color-bg-light: #F8FAFC;
+  --color-border-slate: #E2E8F0;
+  --color-text-main: #1E293B;
+  --color-text-secondary: #64748B;
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+}
+
+@layer base {
+  body {
+    @apply bg-bg-light text-text-main font-sans;
+    background-image: 
+      radial-gradient(at 0% 0%, rgba(200, 16, 46, 0.02) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(245, 158, 11, 0.015) 0px, transparent 50%),
+      linear-gradient(to bottom, #F8FAFC, #F1F5F9);
+    background-attachment: fixed;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.011em;
+  }
+
+  ::selection {
+    background-color: rgba(200, 16, 46, 0.12);
+    color: #C8102E;
+  }
+}
+
+@layer components {
+  /* ═══ Ultra-Premium Glass Cards ═══ */
+  .glass-card {
+    @apply bg-white/75 backdrop-blur-xl border border-slate-200/50 rounded-3xl transition-all duration-300;
+    box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.03), 0 0 0 1px rgba(226, 232, 240, 0.8);
+  }
+  
+  .premium-shadow {
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  }
+
+  /* ═══ Physical Hover Lift Animation ═══ */
+  .premium-card-hover {
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .premium-card-hover:hover {
+    transform: translateY(-4px) scale(1.002);
+    box-shadow: 0 30px 60px -15px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(200, 16, 46, 0.15);
+    border-color: rgba(200, 16, 46, 0.15);
+  }
+
+  /* ═══ Navigation Link ═══ */
+  .nav-link {
+    @apply flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 hover:bg-white/10;
+  }
+
+  .nav-link.active {
+    @apply bg-brand-red text-white shadow-lg shadow-brand-red/20;
+  }
+
+  /* ═══ Sleek Corporate Input Controls ═══ */
+  .premium-input,
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  textarea,
+  select {
+    @apply bg-slate-50/50 border border-slate-200 rounded-2xl px-5 py-3.5 text-sm font-medium transition-all duration-300 outline-none;
+    box-shadow: inset 0 2px 4px 0 rgba(0,0,0,0.01);
+  }
+  
+  .premium-input:hover,
+  input[type="text"]:hover,
+  input[type="email"]:hover,
+  input[type="password"]:hover,
+  input[type="search"]:hover,
+  textarea:hover,
+  select:hover {
+    @apply bg-white border-slate-300/80;
+  }
+  
+  .premium-input:focus,
+  input[type="text"]:focus,
+  input[type="email"]:focus,
+  input[type="password"]:focus,
+  input[type="search"]:focus,
+  textarea:focus,
+  select:focus {
+    @apply bg-white border-brand-red/35 ring-4 ring-brand-red/5;
+    box-shadow: 0 0 0 1px rgba(200, 16, 46, 0.15), 0 10px 20px -10px rgba(200, 16, 46, 0.05);
+  }
+
+  /* ═══ Elite Interactive Buttons ═══ */
+  .premium-btn-primary {
+    @apply bg-slate-900 hover:bg-slate-800 text-white px-6 py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2.5 shadow-lg shadow-slate-900/10 active:scale-[0.98] cursor-pointer;
+  }
+  
+  .premium-btn-secondary {
+    @apply bg-white hover:bg-slate-50 text-slate-700 px-6 py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2.5 shadow-md border border-slate-200/80 active:scale-[0.98] cursor-pointer;
+  }
+  
+  .premium-btn-brand {
+    @apply bg-brand-red hover:bg-brand-red-dark text-white px-6 py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2.5 shadow-lg shadow-brand-red/20 active:scale-[0.98] cursor-pointer;
+  }
+}
+
+/* ═══ Shimmer Loader Effect ═══ */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.shimmer-loader {
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* ═══ Animated Gradient Border ═══ */
+@keyframes gradient-flow {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.animated-gradient-border {
+  background: linear-gradient(135deg, #C8102E, #f59e0b, #3b82f6, #10b981, #C8102E);
+  background-size: 400% 400%;
+  animation: gradient-flow 6s ease infinite;
+}
+
+/* ═══ Floating Animation ═══ */
+@keyframes float-gentle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.animate-float {
+  animation: float-gentle 3s ease-in-out infinite;
+}
+
+/* ═══ Pulse Ring ═══ */
+@keyframes pulse-ring {
+  0% { transform: scale(0.9); opacity: 1; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+.pulse-ring::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border: 2px solid #10b981;
+  border-radius: inherit;
+  animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+/* ═══ Glow Hover ═══ */
+.glow-hover {
+  transition: box-shadow 0.4s ease;
+}
+.glow-hover:hover {
+  box-shadow: 0 0 30px rgba(200, 16, 46, 0.15), 0 10px 40px rgba(0,0,0,0.08);
+}
+
+/* ═══ Scroll fade mask ═══ */
+.scroll-fade-mask {
+  mask-image: linear-gradient(to bottom, transparent 0%, block 5%, block 90%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, block 5%, block 90%, transparent 100%);
+}
+
+/* ═══ No scrollbar ═══ */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ═══ Text gradient utility ═══ */
+.text-gradient-red {
+  background: linear-gradient(135deg, #C8102E 0%, #E8384F 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ═══ Engagement bar fill animation ═══ */
+@keyframes bar-fill {
+  from { width: 0%; }
+}
+
+.animate-bar-fill {
+  animation: bar-fill 0.8s ease-out forwards;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-200 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-300;
+}
+
+/* Premium Dark Theme Stylesheet Overrides */
+html.dark {
+  background-color: #0B0F19 !important;
+  color-scheme: dark;
+}
+
+html.dark body {
+  background-color: #0B0F19 !important;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(200, 16, 46, 0.05) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(59, 130, 246, 0.04) 0px, transparent 50%),
+    linear-gradient(to bottom, #0B0F19, #080C14);
+  background-attachment: fixed;
+  color: #F8FAFC !important;
+}
+
+/* Global layout wrapper background overrides */
+html.dark .bg-\[\#F8FAFC\],
+html.dark .bg-bg-light,
+html.dark .bg-slate-50,
+html.dark .bg-slate-50\/30,
+html.dark .bg-slate-50\/50,
+html.dark .bg-slate-50\/60,
+html.dark .bg-slate-100\/50,
+html.dark .bg-slate-100\/30,
+html.dark .bg-slate-100,
+html.dark .bg-slate-150,
+html.dark .bg-slate-200\/50 {
+  background-color: #0B0F19 !important;
+}
+
+/* Premium Card and Panel Overrides (Obsidian navy contrast) */
+html.dark .glass-card,
+html.dark [class*="glass-card"],
+html.dark .bg-white,
+html.dark .bg-white\/70,
+html.dark .bg-white\/80,
+html.dark .bg-white\/90 {
+  background-color: #131B2E !important;
+  border-color: rgba(51, 65, 85, 0.45) !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Sidebar inner elements and secondary cards (Deep obsidian slate contrast) */
+html.dark header, 
+html.dark .bg-slate-100,
+html.dark .bg-slate-150,
+html.dark .bg-slate-200\/50 {
+  background-color: #1A233D !important;
+  border-color: rgba(51, 65, 85, 0.4) !important;
+}
+
+/* Text Element Color Adjustments */
+html.dark .text-slate-800,
+html.dark .text-slate-850,
+html.dark .text-slate-900,
+html.dark .text-slate-805,
+html.dark .text-slate-700,
+html.dark .text-slate-650,
+html.dark .text-slate-600,
+html.dark h1,
+html.dark h2,
+html.dark h3,
+html.dark h4,
+html.dark .text-slate-700 {
+  color: #F8FAFC !important;
+}
+
+html.dark .text-slate-500,
+html.dark .text-slate-400,
+html.dark .text-slate-350,
+html.dark .text-slate-300 {
+  color: #94A3B8 !important;
+}
+
+/* Form inputs & interactive inputs */
+html.dark input,
+html.dark textarea,
+html.dark select {
+  background-color: #0B0F19 !important;
+  border-color: rgba(51, 65, 85, 0.5) !important;
+  color: #F8FAFC !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #475569 !important;
+}
+
+html.dark input:focus,
+html.dark textarea:focus,
+html.dark select:focus {
+  background-color: #131B2E !important;
+  border-color: rgba(200, 16, 46, 0.35) !important;
+}
+
+/* Border overrides globally */
+html.dark .border-slate-100,
+html.dark .border-slate-50,
+html.dark .border-slate-200,
+html.dark .border-transparent {
+  border-color: rgba(51, 65, 85, 0.35) !important;
+}
+
+/* Hover highlights and lists */
+html.dark .hover\:bg-slate-50:hover,
+html.dark .hover\:bg-slate-100:hover,
+html.dark .hover\:text-slate-800:hover {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  color: #FFFFFF !important;
+}
+
+/* Scrollbar customization */
+html.dark ::-webkit-scrollbar-thumb {
+  background-color: rgba(51, 65, 85, 0.6) !important;
+}
+
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(71, 85, 105, 0.8) !important;
+}
+
+/* Shimmer loader dark mode */
+html.dark .shimmer-loader {
+  background: linear-gradient(90deg, #131B2E 25%, #1A233D 50%, #131B2E 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* Custom scrollbar utility */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+html.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(51, 65, 85, 0.6) !important;
+}
+html.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(71, 85, 105, 0.8) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   SAFETY GUARD: GUARANTEE SIDEBAR COLOR & ACTIVE STATE INTEGRITY IN DARK MODE
+   ══════════════════════════════════════════════════════════════════════════ */
+html.dark aside,
+html.dark aside.bg-brand-red-dark {
+  background-color: #A30D25 !important;
+}
+
+html.dark aside .bg-white {
+  background-color: #FFFFFF !important;
+}
+
+html.dark aside .text-brand-red {
+  color: #C8102E !important;
+}
+
+html.dark aside .nav-link:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  color: #FFFFFF !important;
+}
+
+html.dark aside .nav-link.active {
+  background-color: #FFFFFF !important;
+  color: #C8102E !important;
+}
