@@ -3,6 +3,23 @@ const router = express.Router();
 const db = require('../config/db');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
+const { sendEmail } = require('../utils/email');
+
+function formatDateTime(date) {
+    if (!date) return 'N/A';
+    const d = new Date(date);
+    const day = String(d.getDate()).padStart(2, '0');
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const month = months[d.getMonth()];
+    const year = d.getFullYear();
+    let hours = d.getHours();
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    return `${day}-${month}-${year} ${hours}:${minutes} ${ampm}`;
+}
+
 
 // Helper: Get tickets based on user role and query filters
 async function fetchTicketsWithAccessControl(req, queryParams) {
@@ -149,25 +166,30 @@ router.get('/my-tickets', async (req, res) => {
 
 // Submit a new ticket
 router.post('/', async (req, res) => {
-    const { userId, subject, department, category, priority, description } = req.body;
+    const { userId, subject, department, category, priority, description, deadline } = req.body;
     try {
         if (!userId || !subject || !department || !category || !priority || !description) {
             return res.status(400).json({ message: 'All fields are required' });
         }
 
-        // Calculate SLA Deadline in hours based on priority
-        let slaHours = 48; // default medium
-        if (priority === 'low') slaHours = 72;
-        else if (priority === 'high') slaHours = 24;
-        else if (priority === 'urgent') slaHours = 4;
+        // Calculate SLA Deadline in hours based on priority or use custom deadline
+        let slaDeadline;
+        if (deadline) {
+            slaDeadline = new Date(deadline);
+        } else {
+            let slaHours = 48; // default medium
+            if (priority === 'low') slaHours = 72;
+            else if (priority === 'high') slaHours = 24;
+            else if (priority === 'urgent') slaHours = 4;
 
-        const slaDeadline = new Date(Date.now() + slaHours * 60 * 60 * 1000);
+            slaDeadline = new Date(Date.now() + slaHours * 60 * 60 * 1000);
+        }
 
         // Insert ticket
         const [result] = await db.execute(
-            `INSERT INTO tickets (user_id, subject, department, category, priority, description, status, sla_deadline) 
-             VALUES (?, ?, ?, ?, ?, ?, 'open', ?)`,
-            [userId, subject, department, category, priority, description, slaDeadline]
+            `INSERT INTO tickets (user_id, subject, department, category, priority, description, status, sla_deadline, employee_deadline) 
+             VALUES (?, ?, ?, ?, ?, ?, 'open', ?, ?)`,
+            [userId, subject, department, category, priority, description, slaDeadline, slaDeadline]
         );
 
         const ticketId = result.insertId;
@@ -270,7 +292,16 @@ router.get('/:id/details', async (req, res) => {
             [id]
         );
 
-        res.json({ ticket, comments, attachments, logs, internalNotes });
+        // Deadline Extension History
+        const [deadlineHistory] = await db.execute(
+            `SELECT tdh.*
+             FROM ticket_deadline_history tdh
+             WHERE tdh.ticket_id = ?
+             ORDER BY tdh.created_at ASC`,
+            [id]
+        );
+
+        res.json({ ticket, comments, attachments, logs, internalNotes, deadlineHistory });
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Server error' });
@@ -283,7 +314,13 @@ router.put('/:id/status', async (req, res) => {
     const { status, assigned_to_id, resolution_notes, current_user_id } = req.body;
     
     try {
-        const [existing] = await db.execute('SELECT * FROM tickets WHERE id = ?', [id]);
+        const [existing] = await db.execute(
+            `SELECT t.*, u.email as user_email, u.full_name as user_name 
+             FROM tickets t 
+             JOIN users u ON t.user_id = u.id 
+             WHERE t.id = ?`,
+            [id]
+        );
         if (existing.length === 0) {
             return res.status(404).json({ message: 'Ticket not found' });
         }
@@ -299,6 +336,61 @@ router.put('/:id/status', async (req, res) => {
             query += ', priority = ?';
             params.push(priority);
             auditDetails += `, priority changed to ${priority}`;
+        }
+
+        // Deadline change with Authority & Mandatory Reason Validation
+        const { sla_deadline, reason } = req.body;
+        let isDeadlineUpdated = false;
+        let deadlineNotificationMessage = '';
+        let oldDeadlineFormatted = '';
+        let newDeadlineFormatted = '';
+
+        if (sla_deadline !== undefined) {
+            if (!current_user_id) {
+                return res.status(400).json({ message: 'current_user_id is required for authority verification' });
+            }
+
+            // Retrieve current user role
+            const [userRows] = await db.execute('SELECT role, full_name FROM users WHERE id = ?', [current_user_id]);
+            if (userRows.length === 0) {
+                return res.status(401).json({ message: 'Unauthorized user' });
+            }
+            const currentUserRole = userRows[0].role;
+            const isAssignee = ticket.assigned_to_id && (Number(ticket.assigned_to_id) === Number(current_user_id));
+            const isAuthorized = ['super_admin', 'it_admin', 'hr_admin'].includes(currentUserRole) || isAssignee;
+
+            if (!isAuthorized) {
+                return res.status(403).json({ message: 'You are not authorized to modify the deadline for this ticket' });
+            }
+
+            // Check if deadline has actually changed
+            const newDeadlineDate = sla_deadline ? new Date(sla_deadline) : null;
+            const oldDeadlineDate = ticket.sla_deadline ? new Date(ticket.sla_deadline) : null;
+
+            const isChanging = (newDeadlineDate?.getTime() !== oldDeadlineDate?.getTime());
+
+            if (isChanging) {
+                if (newDeadlineDate && (!reason || !reason.trim())) {
+                    return res.status(400).json({ message: 'Reason for deadline modification is required' });
+                }
+
+                query += ', sla_deadline = ?, extension_reason = ?, extended_by_name = ?, extended_by_role = ?, extended_on = CURRENT_TIMESTAMP';
+                params.push(newDeadlineDate, reason, userRows[0].full_name, currentUserRole);
+
+                await db.execute(
+                    `INSERT INTO ticket_deadline_history (ticket_id, old_deadline, new_deadline, reason, updated_by_id, updated_by_name, updated_by_role)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                    [id, ticket.sla_deadline || null, newDeadlineDate, reason, current_user_id, userRows[0].full_name, currentUserRole]
+                );
+
+                oldDeadlineFormatted = formatDateTime(oldDeadlineDate);
+                newDeadlineFormatted = formatDateTime(newDeadlineDate);
+
+                auditDetails += `, deadline updated from ${oldDeadlineFormatted} to ${newDeadlineFormatted}. Reason: ${reason}`;
+                
+                isDeadlineUpdated = true;
+                deadlineNotificationMessage = `Your ticket deadline has been updated from ${oldDeadlineFormatted} to ${newDeadlineFormatted}. Reason: ${reason}`;
+            }
         }
 
         // Assignment logic
@@ -337,21 +429,56 @@ router.put('/:id/status', async (req, res) => {
 
         // Audit Logging
         const userIdForLog = current_user_id || ticket.user_id;
-        await logActivity(id, userIdForLog, status === 'resolved' ? 'resolve' : 'update_status', auditDetails);
+        await logActivity(id, userIdForLog, isDeadlineUpdated ? 'extend_deadline' : (status === 'resolved' ? 'resolve' : 'update_status'), auditDetails);
 
         // Socket Notification: to user and department
         notifySocketRoom(req, `user:${ticket.user_id}`, 'ticket_updated', { id, status, details: auditDetails });
         notifySocketRoom(req, `dept:${ticket.department}`, 'ticket_updated', { id, status, details: auditDetails });
 
         // Database Notification to requester
-        await db.execute(
-            'INSERT INTO notifications (user_id, type, message, link) VALUES (?, "ticket", ?, ?)',
-            [
-                ticket.user_id, 
-                `Your ticket ${ticket.ticket_no || `#${id}`} status was updated to ${status.toUpperCase()}.`, 
-                `/help`
-            ]
-        );
+        if (isDeadlineUpdated) {
+            // Requester notification for deadline extension
+            await db.execute(
+                'INSERT INTO notifications (user_id, type, message, link) VALUES (?, "ticket_deadline", ?, ?)',
+                [ticket.user_id, deadlineNotificationMessage, `/help`]
+            );
+            
+            // Emit Socket deadline notification
+            notifySocketRoom(req, `user:${ticket.user_id}`, 'ticket_deadline_updated', {
+                id,
+                ticket_no: ticket.ticket_no,
+                message: deadlineNotificationMessage
+            });
+
+            // Send Email notification
+            const emailSubject = `Ticket Deadline Updated: ${ticket.ticket_no || `#${id}`}`;
+            const emailHtml = `
+                <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+                    <h2 style="color: #c8102e; margin-top: 0;">Ticket Deadline Updated</h2>
+                    <p>Hello ${ticket.user_name || 'Employee'},</p>
+                    <p>Your ticket <strong>${ticket.ticket_no || `#${id}`}</strong> deadline has been updated from <strong>${oldDeadlineFormatted}</strong> to <strong>${newDeadlineFormatted}</strong>.</p>
+                    <p><strong>Reason:</strong> ${reason}</p>
+                    <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+                    <p style="font-size: 11px; color: #64748b;">This is an automated notification from the GS Corporate Support Desk.</p>
+                </div>
+            `;
+            await sendEmail({
+                to: ticket.user_email,
+                subject: emailSubject,
+                text: deadlineNotificationMessage,
+                html: emailHtml
+            });
+        } else {
+            // Regular status update notification
+            await db.execute(
+                'INSERT INTO notifications (user_id, type, message, link) VALUES (?, "ticket", ?, ?)',
+                [
+                    ticket.user_id, 
+                    `Your ticket ${ticket.ticket_no || `#${id}`} status was updated to ${status.toUpperCase()}.`, 
+                    `/help`
+                ]
+            );
+        }
 
         // Notification to assigned staff if assigned
         if (assigned_to_id) {

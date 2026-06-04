@@ -703,6 +703,13 @@ const HRRequestCenter = () => {
                     {filteredTickets.map(t => {
                       const isExpanded = expandedTicketId === t.id;
                       const isSlaBreached = t.sla_deadline && new Date(t.sla_deadline) < new Date() && !['resolved', 'closed'].includes(t.status);
+                      const detailObj = isExpanded ? (ticketDetail || t) : t;
+                      const hasExtension = !!(detailObj.extended_by_name || (detailObj.employee_deadline && detailObj.sla_deadline && new Date(detailObj.employee_deadline).getTime() !== new Date(detailObj.sla_deadline).getTime()));
+                      const originalDeadlineVal = detailObj.employee_deadline 
+                        ? new Date(detailObj.employee_deadline).toLocaleString() 
+                        : (isExpanded && deadlineHistory.length > 0 && deadlineHistory[0].old_deadline 
+                            ? new Date(deadlineHistory[0].old_deadline).toLocaleString() 
+                            : 'N/A');
 
                       return (
                         <div 
@@ -769,9 +776,58 @@ const HRRequestCenter = () => {
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                       <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
                                         <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">SLA Response Limit</p>
-                                        <p className="text-xs font-black text-slate-700 mt-1 flex items-center gap-1.5">
-                                          <Clock className="w-4 h-4 text-rose-650" /> {t.sla_deadline ? new Date(t.sla_deadline).toLocaleString() : 'N/A'}
-                                        </p>
+                                        {hasExtension ? (
+                                          <div className="flex flex-col gap-1 mt-1">
+                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                              <span className="text-[10px] line-through text-slate-400 font-bold flex items-center gap-1">
+                                                <Clock className="w-3.5 h-3.5 text-slate-400" /> Original: {originalDeadlineVal}
+                                              </span>
+                                              <span className="text-[8px] bg-amber-50 text-amber-700 font-black px-1.5 py-0.5 rounded border border-amber-200">
+                                                Extended
+                                              </span>
+                                            </div>
+                                            <p className="text-xs font-black text-slate-700 flex items-center gap-1.5 flex-wrap">
+                                              <Clock className="w-4 h-4 text-rose-655" /> Current: {detailObj.sla_deadline ? new Date(detailObj.sla_deadline).toLocaleString() : 'N/A'}
+                                              {(user?.role === 'super_admin' || user?.role === 'hr_admin' || user?.id === t.assigned_to_id) && (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    setEditingTicket(t);
+                                                    setTempDeadline(t.sla_deadline ? new Date(t.sla_deadline).toISOString().slice(0, 16) : '');
+                                                    setExtensionReason('');
+                                                    setShowExtensionModal(true);
+                                                  }}
+                                                  className="text-blue-600 hover:underline text-[9px] font-black uppercase tracking-wider ml-1.5"
+                                                >
+                                                  Edit
+                                                </button>
+                                              )}
+                                            </p>
+                                            {detailObj.extension_reason && (
+                                              <p className="text-[10px] text-slate-500 font-semibold bg-white border border-slate-100 px-2 py-1 rounded-lg mt-0.5 max-w-sm">
+                                                <span className="font-bold text-slate-600">Reason:</span> {detailObj.extension_reason}
+                                              </p>
+                                            )}
+                                          </div>
+                                        ) : (
+                                          <p className="text-xs font-black text-slate-700 mt-1 flex items-center gap-1.5">
+                                            <Clock className="w-4 h-4 text-rose-655" /> {detailObj.sla_deadline ? new Date(detailObj.sla_deadline).toLocaleString() : 'N/A'}
+                                            {(user?.role === 'super_admin' || user?.role === 'hr_admin' || user?.id === t.assigned_to_id) && (
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  setEditingTicket(t);
+                                                  setTempDeadline(t.sla_deadline ? new Date(t.sla_deadline).toISOString().slice(0, 16) : '');
+                                                  setExtensionReason('');
+                                                  setShowExtensionModal(true);
+                                                }}
+                                                className="text-blue-600 hover:underline text-[9px] font-black uppercase tracking-wider ml-1.5"
+                                              >
+                                                Edit
+                                              </button>
+                                            )}
+                                          </p>
+                                        )}
                                         {isSlaBreached && (
                                           <p className="text-[9px] font-black text-rose-600 mt-1.5 flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5" /> SLA deadline has passed!</p>
                                         )}
@@ -784,6 +840,60 @@ const HRRequestCenter = () => {
                                         </p>
                                       </div>
                                     </div>
+
+                                    {/* Deadline Details Card */}
+                                    {hasExtension && (
+                                      <div className="bg-amber-50/50 border border-amber-200/50 rounded-2xl p-5 text-left">
+                                        <div className="flex items-center gap-1.5 mb-3">
+                                          <Clock className="w-4 h-4 text-amber-600" />
+                                          <span className="text-[10px] font-black uppercase tracking-wider text-amber-800">Deadline Details</span>
+                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                          <div>
+                                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block font-bold">Requested Deadline</span>
+                                            <span className="text-[11px] font-bold text-slate-750">{originalDeadlineVal}</span>
+                                          </div>
+                                          <div>
+                                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block font-bold">Current Deadline</span>
+                                            <span className="text-[11px] font-black text-slate-900 flex items-center gap-1">
+                                              {detailObj.sla_deadline ? new Date(detailObj.sla_deadline).toLocaleString() : 'N/A'}
+                                              {(user?.role === 'super_admin' || user?.role === 'hr_admin' || user?.id === t.assigned_to_id) && (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    setEditingTicket(t);
+                                                    setTempDeadline(t.sla_deadline ? new Date(t.sla_deadline).toISOString().slice(0, 16) : '');
+                                                    setExtensionReason('');
+                                                    setShowExtensionModal(true);
+                                                  }}
+                                                  className="text-blue-600 hover:underline text-[9px] font-black uppercase tracking-wider ml-1"
+                                                >
+                                                  Edit
+                                                </button>
+                                              )}
+                                            </span>
+                                          </div>
+                                          {detailObj.extension_reason && (
+                                            <div className="sm:col-span-2 border-t border-slate-100 pt-3">
+                                              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block font-bold mb-0.5">Extension Reason</span>
+                                              <span className="text-xs font-semibold text-slate-750 leading-relaxed block">{detailObj.extension_reason}</span>
+                                            </div>
+                                          )}
+                                          {detailObj.extended_by_name && (
+                                            <div className="border-t border-slate-100 pt-3">
+                                              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block font-bold">Extended By</span>
+                                              <span className="text-[11px] font-bold text-slate-700">{detailObj.extended_by_name} ({detailObj.extended_by_role?.replace('_', ' ')})</span>
+                                            </div>
+                                          )}
+                                          {detailObj.extended_on && (
+                                            <div className="border-t border-slate-100 pt-3">
+                                              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block font-bold">Extended On</span>
+                                              <span className="text-[11px] font-bold text-slate-700">{new Date(detailObj.extended_on).toLocaleString()}</span>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
 
                                     <div>
                                       <h5 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Request Details</h5>
@@ -865,6 +975,49 @@ const HRRequestCenter = () => {
 
                                       </div>
                                     </div>
+
+                                    {/* Deadline History Section */}
+                                    {deadlineHistory.length > 0 && (
+                                      <div className="bg-white p-5 rounded-2xl border border-slate-100 mt-6 text-left">
+                                        <h5 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Deadline History</h5>
+                                        <div className="relative border-l border-slate-100 pl-6 ml-3 space-y-6">
+                                          {deadlineHistory.map((hist, idx) => (
+                                            <div key={hist.id} className="relative">
+                                              <div className="absolute -left-[31px] top-1.5 w-2.5 h-2.5 rounded-full bg-amber-500 border-2 border-white ring-2 ring-amber-50" />
+                                              <div>
+                                                <span className="text-[10px] font-black uppercase text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                                                  Extension #{idx + 1}
+                                                </span>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mt-3">
+                                                  <div>
+                                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Old Deadline</p>
+                                                    <p className="text-xs font-bold text-slate-700">{hist.old_deadline ? new Date(hist.old_deadline).toLocaleString() : 'N/A'}</p>
+                                                  </div>
+                                                  <div>
+                                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">New Deadline</p>
+                                                    <p className="text-xs font-bold text-slate-700">{hist.new_deadline ? new Date(hist.new_deadline).toLocaleString() : 'N/A'}</p>
+                                                  </div>
+                                                  <div>
+                                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Updated By</p>
+                                                    <p className="text-xs font-bold text-slate-700">{hist.updated_by_name} ({hist.updated_by_role?.replace('_', ' ')})</p>
+                                                  </div>
+                                                  <div>
+                                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Updated At</p>
+                                                    <p className="text-xs font-bold text-slate-700">{new Date(hist.created_at).toLocaleString()}</p>
+                                                  </div>
+                                                </div>
+                                                {hist.reason && (
+                                                  <div className="bg-slate-50 border border-slate-100 p-2.5 rounded-xl mt-2 max-w-xl text-left">
+                                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Reason for Extension</p>
+                                                    <p className="text-xs font-semibold text-slate-655 leading-relaxed">{hist.reason}</p>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
 
                                     {/* Actions controls */}
                                     <div className="pt-5 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">

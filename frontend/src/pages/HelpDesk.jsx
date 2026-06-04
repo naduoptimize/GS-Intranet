@@ -60,6 +60,7 @@ const HelpDesk = () => {
   const [comments, setComments] = useState([]);
   const [attachments, setAttachments] = useState([]);
   const [logs, setLogs] = useState([]);
+  const [deadlineHistory, setDeadlineHistory] = useState([]);
 
   const [usersList, setUsersList] = useState([]);
   const [selectedAssignees, setSelectedAssignees] = useState({});
@@ -75,6 +76,7 @@ const HelpDesk = () => {
   const [assignedComments, setAssignedComments] = useState([]);
   const [assignedAttachments, setAssignedAttachments] = useState([]);
   const [assignedLogs, setAssignedLogs] = useState([]);
+  const [assignedDeadlineHistory, setAssignedDeadlineHistory] = useState([]);
   const [newAssignedComment, setNewAssignedComment] = useState('');
   const [submittingAssignedComment, setSubmittingAssignedComment] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState({});
@@ -178,6 +180,11 @@ const HelpDesk = () => {
   const [description, setDescription] = useState('');
   const [submitLoading, setSubmitLoading] = useState(false);
   const [formSuccess, setFormSuccess] = useState(false);
+  const [deadline, setDeadline] = useState('');
+  const [tempDeadline, setTempDeadline] = useState('');
+  const [showExtensionModal, setShowExtensionModal] = useState(false);
+  const [extensionReason, setExtensionReason] = useState('');
+  const [editingTicket, setEditingTicket] = useState(null);
 
   // Dynamic Category lists depending on department selection
   const categoryMap = {
@@ -328,6 +335,7 @@ const HelpDesk = () => {
       setAssignedComments(res.data.comments || []);
       setAssignedAttachments(res.data.attachments || []);
       setAssignedLogs(res.data.logs || []);
+      setAssignedDeadlineHistory(res.data.deadlineHistory || []);
     } catch (err) {
       console.error('Error fetching assigned ticket detail:', err);
     }
@@ -406,6 +414,7 @@ const HelpDesk = () => {
       setComments(res.data.comments || []);
       setAttachments(res.data.attachments || []);
       setLogs(res.data.logs || []);
+      setDeadlineHistory(res.data.deadlineHistory || []);
     } catch (err) {
       console.error('Error fetching ticket details:', err);
     } finally {
@@ -429,6 +438,7 @@ const HelpDesk = () => {
       setAssignedComments([]);
       setAssignedAttachments([]);
       setAssignedLogs([]);
+      setAssignedDeadlineHistory([]);
     }
   }, [expandedAssignedId]);
 
@@ -441,6 +451,7 @@ const HelpDesk = () => {
       setComments([]);
       setAttachments([]);
       setLogs([]);
+      setDeadlineHistory([]);
     }
   }, [expandedTicketId]);
 
@@ -466,7 +477,8 @@ const HelpDesk = () => {
         department,
         category,
         priority,
-        description
+        description,
+        deadline: deadline || null
       };
       const res = await axios.post(`${backendUrl}/api/tickets`, payload);
       const newTicketId = res.data.id;
@@ -494,6 +506,7 @@ const HelpDesk = () => {
         setDepartment('it');
         setCategory('User Issue');
         setPriority('medium');
+        setDeadline('');
         setAttachedFile(null);
         setShowFormModal(false);
         setFormSuccess(false);
@@ -504,6 +517,26 @@ const HelpDesk = () => {
       alert('Could not submit ticket: ' + (err.response?.data?.message || err.message));
     } finally {
       setSubmitLoading(false);
+    }
+  };
+
+  const handleSaveDeadline = async (ticketId, currentStatus) => {
+    try {
+      await axios.put(`${backendUrl}/api/tickets/${ticketId}/status`, {
+        status: currentStatus,
+        sla_deadline: tempDeadline || null,
+        reason: extensionReason,
+        current_user_id: user?.id
+      });
+      setShowExtensionModal(false);
+      setExtensionReason('');
+      setEditingTicket(null);
+      fetchTickets();
+      if (expandedTicketId === ticketId) fetchTicketDetails(ticketId);
+      if (expandedAssignedId === ticketId) fetchAssignedDetail(ticketId);
+    } catch (err) {
+      console.error('Error updating deadline:', err);
+      alert(err.response?.data?.message || 'Failed to update deadline');
     }
   };
 
@@ -883,6 +916,13 @@ const HelpDesk = () => {
                   <div className="divide-y divide-slate-100">
                     {assignedTickets.map(t => {
                       const isExpanded = expandedAssignedId === t.id;
+                      const assignedDetailObj = isExpanded ? (assignedDetail || t) : t;
+                      const hasAssignedExtension = !!(assignedDetailObj.extended_by_name || (assignedDetailObj.employee_deadline && assignedDetailObj.sla_deadline && new Date(assignedDetailObj.employee_deadline).getTime() !== new Date(assignedDetailObj.sla_deadline).getTime()));
+                      const assignedOriginalDeadlineVal = assignedDetailObj.employee_deadline 
+                        ? new Date(assignedDetailObj.employee_deadline).toLocaleString() 
+                        : (isExpanded && assignedDeadlineHistory.length > 0 && assignedDeadlineHistory[0].old_deadline 
+                            ? new Date(assignedDeadlineHistory[0].old_deadline).toLocaleString() 
+                            : 'N/A');
                       const statusColor = t.status === 'resolved' ? 'text-emerald-600 bg-emerald-50 border-emerald-200' :
                         t.status === 'in_progress' ? 'text-blue-600 bg-blue-50 border-blue-200' :
                         'text-indigo-600 bg-indigo-50 border-indigo-200';
@@ -965,9 +1005,68 @@ const HelpDesk = () => {
                                         </div>
                                         <div>
                                           <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">SLA Deadline</p>
-                                          <p className="text-xs font-black text-slate-700">{t.sla_deadline ? new Date(t.sla_deadline).toLocaleString() : 'N/A'}</p>
+                                          <p className="text-xs font-black text-slate-700">
+                                            {assignedDetailObj.sla_deadline ? new Date(assignedDetailObj.sla_deadline).toLocaleString() : 'N/A'}
+                                            {hasAssignedExtension && (
+                                              <span className="text-[8px] bg-amber-50 text-amber-700 font-black px-1.5 py-0.5 rounded border border-amber-200 ml-2 animate-pulse">
+                                                Extended
+                                              </span>
+                                            )}
+                                            {(user?.role === 'super_admin' || user?.role === 'it_admin' || user?.role === 'hr_admin' || user?.id === t.assigned_to_id) && (
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  setEditingTicket(t);
+                                                  setTempDeadline(t.sla_deadline ? new Date(t.sla_deadline).toISOString().slice(0, 16) : '');
+                                                  setExtensionReason('');
+                                                  setShowExtensionModal(true);
+                                                }}
+                                                className="text-blue-600 hover:underline text-[9px] font-black uppercase tracking-wider ml-2"
+                                              >
+                                                Edit
+                                              </button>
+                                            )}
+                                          </p>
                                         </div>
                                       </div>
+
+                                      {/* Deadline Details Card */}
+                                      {hasAssignedExtension && (
+                                        <div className="bg-amber-50/50 border border-amber-200/50 rounded-2xl p-5 text-left w-full">
+                                          <div className="flex items-center gap-1.5 mb-3">
+                                            <Clock className="w-4 h-4 text-amber-600" />
+                                            <span className="text-[10px] font-black uppercase tracking-wider text-amber-800">Deadline Details</span>
+                                          </div>
+                                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div>
+                                              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Requested Deadline</span>
+                                              <span className="text-[11px] font-bold text-slate-700">{assignedOriginalDeadlineVal}</span>
+                                            </div>
+                                            <div>
+                                              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Current Deadline</span>
+                                              <span className="text-[11px] font-bold text-slate-700">{assignedDetailObj.sla_deadline ? new Date(assignedDetailObj.sla_deadline).toLocaleString() : 'N/A'}</span>
+                                            </div>
+                                            {assignedDetailObj.extension_reason && (
+                                              <div className="sm:col-span-2 border-t border-slate-100 pt-3">
+                                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Extension Reason</span>
+                                                <span className="text-xs font-semibold text-slate-655 leading-relaxed block">{assignedDetailObj.extension_reason}</span>
+                                              </div>
+                                            )}
+                                            {assignedDetailObj.extended_by_name && (
+                                              <div className="border-t border-slate-100 pt-3">
+                                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Extended By</span>
+                                                <span className="text-[11px] font-bold text-slate-700">{assignedDetailObj.extended_by_name} ({assignedDetailObj.extended_by_role?.replace('_', ' ')})</span>
+                                              </div>
+                                            )}
+                                            {assignedDetailObj.extended_on && (
+                                              <div className="border-t border-slate-100 pt-3">
+                                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Extended On</span>
+                                                <span className="text-[11px] font-bold text-slate-700">{new Date(assignedDetailObj.extended_on).toLocaleString()}</span>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      )}
                                     </div>
                                     {/* Status controls panel */}
                                     <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 space-y-4">
@@ -1056,6 +1155,49 @@ const HelpDesk = () => {
                                       </div>
                                     </div>
                                   </div>
+
+                                  {/* Deadline History Section */}
+                                  {assignedDeadlineHistory.length > 0 && (
+                                    <div className="bg-white p-5 rounded-2xl border border-slate-100 mt-6 text-left">
+                                      <h5 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Deadline History</h5>
+                                      <div className="relative border-l border-slate-100 pl-6 ml-3 space-y-6">
+                                        {assignedDeadlineHistory.map((hist, idx) => (
+                                          <div key={hist.id} className="relative">
+                                            <div className="absolute -left-[31px] top-1.5 w-2.5 h-2.5 rounded-full bg-amber-500 border-2 border-white ring-2 ring-amber-50" />
+                                            <div>
+                                              <span className="text-[10px] font-black uppercase text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                                                Extension #{idx + 1}
+                                              </span>
+                                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mt-3">
+                                                <div>
+                                                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Old Deadline</p>
+                                                  <p className="text-xs font-bold text-slate-700">{hist.old_deadline ? new Date(hist.old_deadline).toLocaleString() : 'N/A'}</p>
+                                                </div>
+                                                <div>
+                                                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">New Deadline</p>
+                                                  <p className="text-xs font-bold text-slate-700">{hist.new_deadline ? new Date(hist.new_deadline).toLocaleString() : 'N/A'}</p>
+                                                </div>
+                                                <div>
+                                                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Updated By</p>
+                                                  <p className="text-xs font-bold text-slate-700">{hist.updated_by_name} ({hist.updated_by_role?.replace('_', ' ')})</p>
+                                                </div>
+                                                <div>
+                                                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Updated At</p>
+                                                  <p className="text-xs font-bold text-slate-700">{new Date(hist.created_at).toLocaleString()}</p>
+                                                </div>
+                                              </div>
+                                              {hist.reason && (
+                                                <div className="bg-slate-50 border border-slate-100 p-2.5 rounded-xl mt-2 max-w-xl text-left">
+                                                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Reason for Extension</p>
+                                                  <p className="text-xs font-semibold text-slate-655 leading-relaxed">{hist.reason}</p>
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                               </motion.div>
                             )}
@@ -1209,6 +1351,13 @@ const HelpDesk = () => {
                   <div className="space-y-4">
                     {filteredTickets.map((t) => {
                       const isExpanded = expandedTicketId === t.id;
+                      const detailObj = isExpanded ? (ticketDetail || t) : t;
+                      const hasExtension = !!(detailObj.extended_by_name || (detailObj.employee_deadline && detailObj.sla_deadline && new Date(detailObj.employee_deadline).getTime() !== new Date(detailObj.sla_deadline).getTime()));
+                      const originalDeadlineVal = detailObj.employee_deadline 
+                        ? new Date(detailObj.employee_deadline).toLocaleString() 
+                        : (isExpanded && deadlineHistory.length > 0 && deadlineHistory[0].old_deadline 
+                            ? new Date(deadlineHistory[0].old_deadline).toLocaleString() 
+                            : 'N/A');
                       return (
                         <div 
                           key={t.id} 
@@ -1360,17 +1509,74 @@ const HelpDesk = () => {
                                         </div>
 
                                         {/* SLA Indicator */}
-                                        <div className="flex items-center gap-3 bg-white border border-slate-100 p-4 rounded-2xl shadow-sm">
-                                          <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-150 flex items-center justify-center text-slate-450">
-                                            <Clock className="w-4 h-4" />
+                                        <div className="flex items-center gap-3 bg-white border border-slate-100 p-4 rounded-2xl">
+                                          <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-150 flex items-center justify-center">
+                                            <Clock className="w-4 h-4 text-slate-400" />
                                           </div>
                                           <div>
                                             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">SLA Deadline</p>
-                                            <p className="text-xs font-black text-slate-700 mt-0.5">
-                                              {t.sla_deadline ? new Date(t.sla_deadline).toLocaleString() : 'N/A'}
+                                            <p className="text-xs font-black text-slate-700">
+                                              {detailObj.sla_deadline ? new Date(detailObj.sla_deadline).toLocaleString() : 'N/A'}
+                                              {hasExtension && (
+                                                <span className="text-[8px] bg-amber-50 text-amber-700 font-black px-1.5 py-0.5 rounded border border-amber-200 ml-2 animate-pulse">
+                                                  Extended
+                                                </span>
+                                              )}
+                                              {(user?.role === 'super_admin' || user?.role === 'it_admin' || user?.role === 'hr_admin' || user?.id === t.assigned_to_id) && (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    setEditingTicket(t);
+                                                    setTempDeadline(t.sla_deadline ? new Date(t.sla_deadline).toISOString().slice(0, 16) : '');
+                                                    setExtensionReason('');
+                                                    setShowExtensionModal(true);
+                                                  }}
+                                                  className="text-blue-600 hover:underline text-[9px] font-black uppercase tracking-wider ml-2"
+                                                >
+                                                  Edit
+                                                </button>
+                                              )}
                                             </p>
                                           </div>
                                         </div>
+
+                                        {/* Deadline Details Card */}
+                                        {hasExtension && (
+                                          <div className="bg-amber-50/50 border border-amber-200/50 rounded-2xl p-5 text-left w-full">
+                                            <div className="flex items-center gap-1.5 mb-3">
+                                              <Clock className="w-4 h-4 text-amber-600" />
+                                              <span className="text-[10px] font-black uppercase tracking-wider text-amber-800">Deadline Details</span>
+                                            </div>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                              <div>
+                                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Requested Deadline</span>
+                                                <span className="text-[11px] font-bold text-slate-700">{originalDeadlineVal}</span>
+                                              </div>
+                                              <div>
+                                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Current Deadline</span>
+                                                <span className="text-[11px] font-bold text-slate-700">{detailObj.sla_deadline ? new Date(detailObj.sla_deadline).toLocaleString() : 'N/A'}</span>
+                                              </div>
+                                              {detailObj.extension_reason && (
+                                                <div className="sm:col-span-2 border-t border-slate-100 pt-3">
+                                                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Extension Reason</span>
+                                                  <span className="text-xs font-semibold text-slate-655 leading-relaxed block">{detailObj.extension_reason}</span>
+                                                </div>
+                                              )}
+                                              {detailObj.extended_by_name && (
+                                                <div className="border-t border-slate-100 pt-3">
+                                                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Extended By</span>
+                                                  <span className="text-[11px] font-bold text-slate-700">{detailObj.extended_by_name} ({detailObj.extended_by_role?.replace('_', ' ')})</span>
+                                                </div>
+                                              )}
+                                              {detailObj.extended_on && (
+                                                <div className="border-t border-slate-100 pt-3">
+                                                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Extended On</span>
+                                                  <span className="text-[11px] font-bold text-slate-700">{new Date(detailObj.extended_on).toLocaleString()}</span>
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        )}
                                       </div>
 
                                       {/* Side Card info */}
@@ -1519,6 +1725,49 @@ const HelpDesk = () => {
                                         </div>
 
                                       </div>
+
+                                      {/* Deadline History Section */}
+                                      {deadlineHistory.length > 0 && (
+                                        <div className="bg-white p-5 rounded-2xl border border-slate-100 mt-6 text-left">
+                                          <h5 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Deadline History</h5>
+                                          <div className="relative border-l border-slate-100 pl-6 ml-3 space-y-6">
+                                            {deadlineHistory.map((hist, idx) => (
+                                              <div key={hist.id} className="relative">
+                                                <div className="absolute -left-[31px] top-1.5 w-2.5 h-2.5 rounded-full bg-amber-500 border-2 border-white ring-2 ring-amber-50" />
+                                                <div>
+                                                  <span className="text-[10px] font-black uppercase text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                                                    Extension #{idx + 1}
+                                                  </span>
+                                                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mt-3">
+                                                    <div>
+                                                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Old Deadline</p>
+                                                      <p className="text-xs font-bold text-slate-700">{hist.old_deadline ? new Date(hist.old_deadline).toLocaleString() : 'N/A'}</p>
+                                                    </div>
+                                                    <div>
+                                                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">New Deadline</p>
+                                                      <p className="text-xs font-bold text-slate-700">{hist.new_deadline ? new Date(hist.new_deadline).toLocaleString() : 'N/A'}</p>
+                                                    </div>
+                                                    <div>
+                                                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Updated By</p>
+                                                      <p className="text-xs font-bold text-slate-700">{hist.updated_by_name} ({hist.updated_by_role?.replace('_', ' ')})</p>
+                                                    </div>
+                                                    <div>
+                                                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Updated At</p>
+                                                      <p className="text-xs font-bold text-slate-700">{new Date(hist.created_at).toLocaleString()}</p>
+                                                    </div>
+                                                  </div>
+                                                  {hist.reason && (
+                                                    <div className="bg-slate-50 border border-slate-100 p-2.5 rounded-xl mt-2 max-w-xl text-left">
+                                                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Reason for Extension</p>
+                                                      <p className="text-xs font-semibold text-slate-655 leading-relaxed">{hist.reason}</p>
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
                                     </div>
 
                                     {/* Admin Controls Box inside detail panel */}
@@ -1816,26 +2065,28 @@ const HelpDesk = () => {
 
                       <div>
                         <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Priority Level</label>
-                        <div className="grid grid-cols-4 gap-2">
-                          {[
-                            { id: 'low', label: 'Low', color: 'bg-slate-900' },
-                            { id: 'medium', label: 'Medium', color: 'bg-amber-500' },
-                            { id: 'high', label: 'High', color: 'bg-orange-500' },
-                            { id: 'urgent', label: 'Urgent', color: 'bg-brand-red' }
-                          ].map(lvl => (
-                            <button
-                              key={lvl.id}
-                              type="button"
-                              onClick={() => setPriority(lvl.id)}
-                              className={`py-2 px-1 rounded-xl text-[8px] font-black uppercase tracking-wider border text-center transition-all ${
-                                priority === lvl.id ? `${lvl.color} border-transparent text-white shadow-sm` : 'bg-slate-50 border-slate-200 text-slate-500'
-                              }`}
-                            >
-                              {lvl.label}
-                            </button>
-                          ))}
-                        </div>
+                        <select
+                          value={priority}
+                          onChange={(e) => setPriority(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 px-3 py-3.5 rounded-xl text-xs font-bold text-slate-655 focus:outline-none focus:border-brand-red/30 focus:bg-white cursor-pointer shadow-sm"
+                        >
+                          <option value="low">🟢 Low – Small issue, work can continue normally.</option>
+                          <option value="medium">🟡 Medium – Problem affects work, but you can still manage.</option>
+                          <option value="high">🟠 High – Serious issue, needs fast help.</option>
+                          <option value="urgent">🔴 Urgent – Work stopped or big problem, fix immediately.</option>
+                        </select>
                       </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Required Deadline</label>
+                      <input
+                        type="datetime-local"
+                        value={deadline}
+                        onChange={(e) => setDeadline(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 px-4 py-3.5 rounded-xl text-slate-705 font-bold text-xs focus:outline-none focus:border-brand-red/30 focus:bg-white transition-all shadow-sm mb-4"
+                        required
+                      />
                     </div>
 
                     <div>
@@ -1902,6 +2153,79 @@ const HelpDesk = () => {
                   </>
                 )}
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* EXTENSION MODAL */}
+      <AnimatePresence>
+        {showExtensionModal && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-[100] overflow-y-auto">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-[28px] w-full max-w-md shadow-2xl relative overflow-hidden border border-slate-100 text-left my-8"
+            >
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-red-50 to-pink-50">
+                <h3 className="text-md font-black text-slate-900 leading-none">Request Deadline Extension</h3>
+                <button
+                  onClick={() => {
+                    setShowExtensionModal(false);
+                    setExtensionReason('');
+                    setEditingTicket(null);
+                  }}
+                  className="w-8 h-8 hover:bg-white rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-655 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-5">
+                <div>
+                  <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">New Date & Time</label>
+                  <input
+                    type="datetime-local"
+                    value={tempDeadline}
+                    onChange={(e) => setTempDeadline(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-slate-700 font-bold text-xs focus:outline-none focus:border-brand-red/30 focus:bg-white transition-all shadow-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Reason for Extension (Mandatory)</label>
+                  <textarea
+                    rows="3"
+                    placeholder="e.g. Waiting for vendor response, additional investigation required..."
+                    value={extensionReason}
+                    onChange={(e) => setExtensionReason(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-slate-700 placeholder-slate-300 font-bold text-xs focus:outline-none focus:border-brand-red/30 focus:bg-white transition-all shadow-sm resize-none"
+                    required
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowExtensionModal(false);
+                      setExtensionReason('');
+                      setEditingTicket(null);
+                    }}
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-500 font-black text-[8px] uppercase tracking-wider hover:bg-slate-55 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => handleSaveDeadline(editingTicket?.id, editingTicket?.status)}
+                    disabled={!tempDeadline || !extensionReason.trim()}
+                    className="px-5 py-2.5 bg-brand-red text-white rounded-xl font-black text-[8px] uppercase tracking-wider hover:bg-brand-red-dark transition-all shadow-md disabled:opacity-50"
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
             </motion.div>
           </div>
         )}

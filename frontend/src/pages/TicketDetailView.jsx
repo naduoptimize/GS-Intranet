@@ -39,6 +39,10 @@ const TicketDetailView = ({ department }) => {
   const [newNote, setNewNote] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
   const [submittingNote, setSubmittingNote] = useState(false);
+  const [tempDeadline, setTempDeadline] = useState('');
+  const [showExtensionModal, setShowExtensionModal] = useState(false);
+  const [extensionReason, setExtensionReason] = useState('');
+  const [deadlineHistory, setDeadlineHistory] = useState([]);
 
   const [usersList, setUsersList] = useState([]);
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -61,6 +65,7 @@ const TicketDetailView = ({ department }) => {
       setInternalNotes(res.data.internalNotes || []);
       setAttachments(res.data.attachments || []);
       setLogs(res.data.logs || []);
+      setDeadlineHistory(res.data.deadlineHistory || []);
     } catch (err) {
       console.error('Ticket load error:', err);
     } finally {
@@ -115,6 +120,9 @@ const TicketDetailView = ({ department }) => {
   const STEP_LABELS = { open:'Created', assigned:'Assigned', in_progress:'In Progress', resolved:'Resolved', closed:'Closed' };
   const stepIdx = STEPS.indexOf(ticket?.status ?? 'open');
 
+  const canEditDeadline = ['super_admin', 'it_admin', 'hr_admin'].includes(user?.role) ||
+    (ticket?.assigned_to_id && Number(ticket.assigned_to_id) === Number(user?.id));
+
   const priorityClass = (p) => ({
     low:    'bg-slate-100 text-slate-600 border-slate-200',
     medium: 'bg-amber-50 text-amber-700 border-amber-200',
@@ -145,6 +153,22 @@ const TicketDetailView = ({ department }) => {
     setSubmittingNote(true);
     try { await axios.post(`${backendUrl}/api/tickets/${id}/internal-notes`, { userId: user?.id, note: newNote }); setNewNote(''); fetchDetails(); }
     finally { setSubmittingNote(false); }
+  };
+  const handleSaveDeadline = async () => {
+    try {
+      await axios.put(`${backendUrl}/api/tickets/${id}/status`, {
+        status: ticket.status,
+        sla_deadline: tempDeadline || null,
+        reason: extensionReason,
+        current_user_id: user?.id
+      });
+      setShowExtensionModal(false);
+      setExtensionReason('');
+      fetchDetails();
+    } catch (err) {
+      console.error('Error saving deadline:', err);
+      alert(err.response?.data?.message || 'Failed to update deadline');
+    }
   };
   const handleAssign = async () => {
     if (!selectedAssignee || assigning) return;
@@ -278,7 +302,34 @@ const TicketDetailView = ({ department }) => {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-slate-100 rounded-xl overflow-hidden border border-slate-100 mb-4">
               {[
                 { label: 'STATUS', el: <span className={`inline-flex px-2.5 py-1 rounded-lg border text-[10px] font-black uppercase tracking-wider ${statusClass(ticket.status)}`}>{ticket.status?.replace('_',' ')}</span> },
-                { label: 'DUE DATE', el: <span className="text-[11px] font-black text-slate-700">{ticket.sla_deadline ? new Date(ticket.sla_deadline).toLocaleString() : 'N/A'}</span> },
+                {
+                  label: 'DUE DATE',
+                  el: (
+                    <div className="flex flex-col text-left">
+                      <span className="text-[11px] font-black text-slate-700 flex items-center gap-1.5 flex-wrap">
+                        {ticket.sla_deadline ? new Date(ticket.sla_deadline).toLocaleString() : 'N/A'}
+                        {canEditDeadline && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTempDeadline(ticket.sla_deadline ? new Date(ticket.sla_deadline).toISOString().slice(0, 16) : '');
+                              setExtensionReason('');
+                              setShowExtensionModal(true);
+                            }}
+                            className="text-blue-600 hover:underline text-[9px] font-black uppercase tracking-wider ml-1"
+                          >
+                            Edit
+                          </button>
+                        )}
+                      </span>
+                      {ticket.employee_deadline && ticket.sla_deadline && new Date(ticket.employee_deadline).getTime() !== new Date(ticket.sla_deadline).getTime() && (
+                        <span className="text-[8px] bg-amber-50 text-amber-700 font-black px-1.5 py-0.5 rounded border border-amber-200 mt-1 self-start animate-pulse">
+                          Extended
+                        </span>
+                      )}
+                    </div>
+                  )
+                },
                 { label: 'PRIORITY', el: <span className={`inline-flex px-2.5 py-1 rounded-lg border text-[10px] font-black uppercase tracking-wider ${priorityClass(ticket.priority)}`}>{ticket.priority}</span> },
                 { label: 'ASSIGNED TO', el: <span className="text-[11px] font-black text-slate-700">{ticket.assignee_name || 'Unassigned'}</span> },
               ].map(item => (
@@ -302,6 +353,59 @@ const TicketDetailView = ({ department }) => {
               </div>
               <span className="text-[10px] font-black shrink-0" style={{ color: slaColor }}>{formatSla()}</span>
             </div>
+
+            {/* Deadline Details Card */}
+            {((ticket.employee_deadline && ticket.sla_deadline && new Date(ticket.employee_deadline).getTime() !== new Date(ticket.sla_deadline).getTime()) || ticket.extended_by_name) && (
+              <div className="bg-amber-50/50 border border-amber-200/50 rounded-2xl p-5 mt-5 text-left">
+                <div className="flex items-center gap-1.5 mb-3">
+                  <Clock className="w-4 h-4 text-amber-600" />
+                  <span className="text-[10px] font-black uppercase tracking-wider text-amber-800">Deadline Details</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block font-bold">Requested Deadline</span>
+                    <span className="text-[11px] font-bold text-slate-700">
+                      {ticket.employee_deadline 
+                        ? new Date(ticket.employee_deadline).toLocaleString() 
+                        : (deadlineHistory.length > 0 && deadlineHistory[0].old_deadline 
+                            ? new Date(deadlineHistory[0].old_deadline).toLocaleString() 
+                            : 'N/A')}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block font-bold">Current Deadline</span>
+                    <span className="text-[11px] font-black text-slate-900 flex items-center gap-1">
+                      {new Date(ticket.sla_deadline).toLocaleString()}
+                      {canEditDeadline && (
+                        <button type="button" onClick={() => {
+                          setTempDeadline(ticket.sla_deadline ? new Date(ticket.sla_deadline).toISOString().slice(0, 16) : '');
+                          setExtensionReason('');
+                          setShowExtensionModal(true);
+                        }} className="text-blue-600 hover:underline text-[9px] font-black uppercase tracking-wider ml-1">Edit</button>
+                      )}
+                    </span>
+                  </div>
+                  {ticket.extension_reason && (
+                    <div className="sm:col-span-2 border-t border-slate-100 pt-3">
+                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block font-bold mb-0.5">Extension Reason</span>
+                      <span className="text-xs font-semibold text-slate-655 leading-relaxed block">{ticket.extension_reason}</span>
+                    </div>
+                  )}
+                  {ticket.extended_by_name && (
+                    <div className="border-t border-slate-100 pt-3">
+                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block font-bold">Extended By</span>
+                      <span className="text-[11px] font-bold text-slate-700">{ticket.extended_by_name} ({ticket.extended_by_role?.replace('_', ' ')})</span>
+                    </div>
+                  )}
+                  {ticket.extended_on && (
+                    <div className="border-t border-slate-100 pt-3">
+                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block font-bold">Extended On</span>
+                      <span className="text-[11px] font-bold text-slate-700">{new Date(ticket.extended_on).toLocaleString()}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </motion.div>
 
           {/* Progress timeline */}
@@ -343,6 +447,9 @@ const TicketDetailView = ({ department }) => {
             <div className="flex border-b border-slate-100 px-2 pt-1 gap-0 overflow-x-auto scrollbar-none">
               {[
                 { id: 'conversation', label: 'Conversation',    count: comments.length,      icon: Send },
+                ...(deadlineHistory.length > 0 ? [
+                  { id: 'deadline_history', label: 'Deadline History', count: deadlineHistory.length, icon: Clock }
+                ] : []),
                 { id: 'notes',        label: 'Internal Notes',  count: internalNotes.length, icon: Lock },
                 { id: 'attachments',  label: 'Attachments',     count: attachments.length,   icon: Paperclip },
                 { id: 'audit',        label: 'Audit Logs',      count: logs.length,          icon: Activity },
@@ -429,6 +536,49 @@ const TicketDetailView = ({ department }) => {
                       {submittingComment ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                     </button>
                   </form>
+                </motion.div>
+              )}
+
+              {/* Deadline History */}
+              {activeTab === 'deadline_history' && (
+                <motion.div key="deadline_hist" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  className="p-5 space-y-6 min-h-[260px]">
+                  <div className="relative border-l border-slate-100 pl-6 ml-3 space-y-6 text-left">
+                    {deadlineHistory.map((hist, idx) => (
+                      <div key={hist.id} className="relative">
+                        <div className="absolute -left-[31px] top-1.5 w-2.5 h-2.5 rounded-full bg-amber-500 border-2 border-white ring-2 ring-amber-50" />
+                        <div>
+                          <span className="text-[10px] font-black uppercase text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                            Extension #{idx + 1}
+                          </span>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mt-3">
+                            <div>
+                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Old Deadline</p>
+                              <p className="text-xs font-bold text-slate-700">{hist.old_deadline ? new Date(hist.old_deadline).toLocaleString() : 'N/A'}</p>
+                            </div>
+                            <div>
+                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">New Deadline</p>
+                              <p className="text-xs font-bold text-slate-700">{hist.new_deadline ? new Date(hist.new_deadline).toLocaleString() : 'N/A'}</p>
+                            </div>
+                            <div>
+                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Updated By</p>
+                              <p className="text-xs font-bold text-slate-700">{hist.updated_by_name} ({hist.updated_by_role?.replace('_', ' ')})</p>
+                            </div>
+                            <div>
+                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Updated At</p>
+                              <p className="text-xs font-bold text-slate-700">{new Date(hist.created_at).toLocaleString()}</p>
+                            </div>
+                          </div>
+                          {hist.reason && (
+                            <div className="bg-slate-50 border border-slate-100 p-2.5 rounded-xl mt-2 max-w-xl text-left">
+                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Reason for Extension</p>
+                              <p className="text-xs font-semibold text-slate-655 leading-relaxed">{hist.reason}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </motion.div>
               )}
 
@@ -614,7 +764,7 @@ const TicketDetailView = ({ department }) => {
                   <button onClick={() => setShowAssignModal(true)}
                     className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-white text-[10px] font-black uppercase tracking-wider active:scale-95 shadow-sm transition-all"
                     style={{ backgroundColor: accent }}>
-                    <UserPlus className="w-3.5 h-3.5" /> Assign Ticket
+                    <UserPlus className="w-3.5 h-3.5" /> {ticket.assignee_name ? `Assign Ticket (${ticket.assignee_name})` : 'Assign Ticket'}
                   </button>
                 )}
                 <button onClick={() => setShowPriorityModal(true)}
@@ -652,7 +802,7 @@ const TicketDetailView = ({ department }) => {
               <button onClick={() => setShowAssignModal(true)}
                 className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-white text-[10px] font-black uppercase tracking-wider active:scale-95 shadow-sm transition-all"
                 style={{ backgroundColor: accent }}>
-                <UserPlus className="w-3.5 h-3.5" /> Assign Ticket
+                <UserPlus className="w-3.5 h-3.5" /> {ticket.assignee_name ? `Assign Ticket (${ticket.assignee_name})` : 'Assign Ticket'}
               </button>
             )}
             <button onClick={() => setShowPriorityModal(true)}
@@ -755,6 +905,54 @@ const TicketDetailView = ({ department }) => {
                 <button onClick={handleResolve} disabled={resolving}
                   className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 rounded-xl text-white text-[10px] font-black uppercase tracking-wider disabled:opacity-50">
                   {resolving ? 'Resolving…' : 'Confirm'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {showExtensionModal && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 border border-slate-100 text-left">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-black text-slate-900">Request Deadline Extension</h3>
+                <button onClick={() => {
+                  setShowExtensionModal(false);
+                  setExtensionReason('');
+                }} className="w-7 h-7 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400"><X className="w-4 h-4" /></button>
+              </div>
+              <div className="space-y-4 mb-4">
+                <div>
+                  <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">New Date & Time</label>
+                  <input
+                    type="datetime-local"
+                    value={tempDeadline}
+                    onChange={(e) => setTempDeadline(e.target.value)}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none bg-slate-50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Reason for Extension (Mandatory)</label>
+                  <textarea
+                    rows="3"
+                    value={extensionReason}
+                    onChange={(e) => setExtensionReason(e.target.value)}
+                    placeholder="e.g. Waiting for vendor response, additional investigation required..."
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 focus:outline-none bg-slate-50 resize-none"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => {
+                  setShowExtensionModal(false);
+                  setExtensionReason('');
+                }} className="flex-1 py-2.5 border border-slate-200 rounded-xl text-[10px] font-black text-slate-500 uppercase tracking-wider hover:bg-slate-50">Cancel</button>
+                <button onClick={handleSaveDeadline} disabled={!tempDeadline || !extensionReason.trim()}
+                  className="flex-1 py-2.5 rounded-xl text-white text-[10px] font-black uppercase tracking-wider disabled:opacity-50"
+                  style={{ backgroundColor: accent }}>
+                  Save
                 </button>
               </div>
             </motion.div>
