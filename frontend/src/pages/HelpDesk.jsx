@@ -174,9 +174,9 @@ const HelpDesk = () => {
   
   // Submit Ticket Form State
   const [subject, setSubject] = useState('');
-  const [department, setDepartment] = useState('it');
+  const [department, setDepartment] = useState('');
   const [category, setCategory] = useState('');
-  const [priority, setPriority] = useState('medium');
+  const [priority, setPriority] = useState('');
   const [description, setDescription] = useState('');
   const [submitLoading, setSubmitLoading] = useState(false);
   const [formSuccess, setFormSuccess] = useState(false);
@@ -191,9 +191,9 @@ const HelpDesk = () => {
   useEffect(() => {
     if (!showFormModal) {
       setSubject('');
-      setDepartment('it');
+      setDepartment('');
       setCategory('');
-      setPriority('medium');
+      setPriority('');
       setDescription('');
       setDeadline('');
       setCustomCategory('');
@@ -559,7 +559,7 @@ const HelpDesk = () => {
   // Submit new ticket
   const handleSubmitTicket = async (e) => {
     e.preventDefault();
-    if (!subject.trim() || !description.trim() || !category) return;
+    if (!subject.trim() || !description.trim() || !category || !department || !priority) return;
     if (category === 'Other' && !customCategory.trim()) return;
 
     setSubmitLoading(true);
@@ -596,9 +596,9 @@ const HelpDesk = () => {
       setTimeout(() => {
         setSubject('');
         setDescription('');
-        setDepartment('it');
+        setDepartment('');
         setCategory('');
-        setPriority('medium');
+        setPriority('');
         setDeadline('');
         setCustomCategory('');
         setAttachedFile(null);
@@ -1962,12 +1962,6 @@ const HelpDesk = () => {
                                             </div>
                                           )}
 
-                                          <button 
-                                            onClick={() => handleDeleteTicket(t.id)}
-                                            className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-650 border border-rose-100 rounded-xl text-[9px] font-black uppercase tracking-wider active:scale-95 flex items-center gap-1 ml-auto"
-                                          >
-                                            <Trash2 className="w-3.5 h-3.5" /> Delete
-                                          </button>
                                         </div>
                                       </div>
                                     )}
@@ -2157,7 +2151,9 @@ const HelpDesk = () => {
                           value={department}
                           onChange={(e) => handleDepartmentChange(e.target.value)}
                           className="w-full bg-slate-50 border border-slate-200 px-3 py-3.5 rounded-xl text-xs font-bold text-slate-650 focus:outline-none focus:border-brand-red/30 focus:bg-white cursor-pointer shadow-sm"
+                          required
                         >
+                          <option value="">— Select Department —</option>
                           <option value="it">IT & Tech Support Desk</option>
                           <option value="hr">Human Resources (HR) Desk</option>
                           <option value="general">General Operations / Facilities</option>
@@ -2207,7 +2203,9 @@ const HelpDesk = () => {
                           value={priority}
                           onChange={(e) => setPriority(e.target.value)}
                           className="w-full bg-slate-50 border border-slate-200 px-3 py-3.5 rounded-xl text-xs font-bold text-slate-655 focus:outline-none focus:border-brand-red/30 focus:bg-white cursor-pointer shadow-sm"
+                          required
                         >
+                          <option value="">— Select Priority Level —</option>
                           <option value="low">🟢 Low – Small issue, work can continue normally.</option>
                           <option value="medium">🟡 Medium – Problem affects work, but you can still manage.</option>
                           <option value="high">🟠 High – Serious issue, needs fast help.</option>

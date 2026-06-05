@@ -127,7 +127,7 @@ const HRRequestCenter = () => {
   // Form State for creating HR ticket
   const [subject, setSubject] = useState('');
   const [category, setCategory] = useState('');
-  const [priority, setPriority] = useState('medium');
+  const [priority, setPriority] = useState('');
   const [description, setDescription] = useState('');
   const [submitLoading, setSubmitLoading] = useState(false);
   const [formSuccess, setFormSuccess] = useState(false);
@@ -141,7 +141,7 @@ const HRRequestCenter = () => {
     if (!showFormModal) {
       setSubject('');
       setCategory('');
-      setPriority('medium');
+      setPriority('');
       setDescription('');
       setDeadline('');
       setCustomCategory('');
@@ -399,7 +399,7 @@ const HRRequestCenter = () => {
   // Submit new HR ticket
   const handleSubmitTicket = async (e) => {
     e.preventDefault();
-    if (!subject.trim() || !description.trim() || !category) return;
+    if (!subject.trim() || !description.trim() || !category || !priority) return;
     if (category === 'Other' && !customCategory.trim()) return;
 
     setSubmitLoading(true);
@@ -433,7 +433,7 @@ const HRRequestCenter = () => {
 
       setFormSuccess(true);
       setTimeout(() => {
-        setSubject(''); setDescription(''); setCategory(''); setPriority('medium'); setAttachedFile(null); setDeadline(''); setCustomCategory('');
+        setSubject(''); setDescription(''); setCategory(''); setPriority(''); setAttachedFile(null); setDeadline(''); setCustomCategory('');
         setShowFormModal(false); setFormSuccess(false); 
         fetchTickets();
         fetchAnalytics();
@@ -1175,15 +1175,6 @@ const HRRequestCenter = () => {
                                               Resolve
                                             </button>
                                           </div>
-                                        )}
-
-                                        {user?.role !== 'super_admin' && (
-                                          <button 
-                                            onClick={() => handleDeleteTicket(t.id)}
-                                            className="px-3 py-2 bg-rose-50 hover:bg-rose-100 border border-rose-150 text-rose-655 rounded-xl text-[9px] font-black uppercase tracking-wider active:scale-95 ml-auto"
-                                          >
-                                            Delete
-                                          </button>
                                         )}
                                       </div>
                                     </div>

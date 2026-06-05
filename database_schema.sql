@@ -46,19 +46,22 @@ CREATE TABLE users (
     full_name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
-    role ENUM('super_admin', 'sub_admin', 'employee') NOT NULL,
-    subsidiary_id INT,
-    department VARCHAR(100),
-    job_title VARCHAR(100),
-    phone VARCHAR(20),
-    profile_pic VARCHAR(255),
-    bio TEXT,
-    nic_number VARCHAR(20),
-    employee_no VARCHAR(20),
-    needs_password_change BOOLEAN DEFAULT TRUE,
-    joining_date DATE,
-    is_active BOOLEAN DEFAULT TRUE,
+    role VARCHAR(50) NOT NULL,
+    subsidiary_id INT DEFAULT NULL,
+    department VARCHAR(100) DEFAULT NULL,
+    job_title VARCHAR(100) DEFAULT NULL,
+    phone VARCHAR(20) DEFAULT NULL,
+    profile_pic VARCHAR(255) DEFAULT NULL,
+    bio TEXT DEFAULT NULL,
+    joining_date DATE DEFAULT NULL,
+    is_active TINYINT(1) DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    nic_number VARCHAR(20) DEFAULT NULL,
+    employee_no VARCHAR(20) DEFAULT NULL,
+    needs_password_change TINYINT(1) DEFAULT 1,
+    reset_otp VARCHAR(6) DEFAULT NULL,
+    reset_otp_expiry DATETIME DEFAULT NULL,
+    date_of_birth DATE DEFAULT NULL,
     FOREIGN KEY (subsidiary_id) REFERENCES subsidiaries(id) ON DELETE SET NULL
 );
 
@@ -147,6 +150,97 @@ CREATE TABLE holidays (
 );
 
 
+-- Tickets Table
+CREATE TABLE tickets (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    ticket_no VARCHAR(50) UNIQUE,
+    user_id INT NOT NULL,
+    assigned_to_id INT DEFAULT NULL,
+    subject VARCHAR(255) NOT NULL,
+    department ENUM('it', 'hr', 'general') NOT NULL,
+    category VARCHAR(100) NOT NULL,
+    priority ENUM('low', 'medium', 'high', 'urgent') DEFAULT 'medium',
+    description TEXT NOT NULL,
+    status ENUM('open', 'assigned', 'in_progress', 'pending', 'resolved', 'closed') NOT NULL DEFAULT 'open',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    resolution_date TIMESTAMP NULL DEFAULT NULL,
+    sla_deadline TIMESTAMP NULL DEFAULT NULL,
+    employee_deadline DATETIME DEFAULT NULL,
+    extension_reason TEXT DEFAULT NULL,
+    extended_by_name VARCHAR(255) DEFAULT NULL,
+    extended_by_role VARCHAR(50) DEFAULT NULL,
+    extended_on DATETIME DEFAULT NULL,
+    assigned_to VARCHAR(150) DEFAULT 'Unassigned',
+    assigned_email VARCHAR(150) DEFAULT '-',
+    resolution_notes TEXT DEFAULT NULL,
+    rating INT DEFAULT NULL,
+    feedback TEXT DEFAULT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (assigned_to_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- Ticket Comments Table
+CREATE TABLE ticket_comments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    ticket_id INT NOT NULL,
+    user_id INT NOT NULL,
+    comment TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Ticket Attachments Table
+CREATE TABLE ticket_attachments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    ticket_id INT NOT NULL,
+    file_name VARCHAR(255) NOT NULL,
+    file_url VARCHAR(255) NOT NULL,
+    uploaded_by INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
+    FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Ticket Audit Logs Table
+CREATE TABLE ticket_audit_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    ticket_id INT NOT NULL,
+    user_id INT NOT NULL,
+    action VARCHAR(100) NOT NULL,
+    details TEXT DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Ticket Internal Notes Table
+CREATE TABLE ticket_internal_notes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    ticket_id INT NOT NULL,
+    user_id INT NOT NULL,
+    note TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Ticket Deadline History Table
+CREATE TABLE ticket_deadline_history (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    ticket_id INT NOT NULL,
+    old_deadline DATETIME DEFAULT NULL,
+    new_deadline DATETIME DEFAULT NULL,
+    reason TEXT NOT NULL,
+    updated_by_id INT NOT NULL,
+    updated_by_name VARCHAR(255) NOT NULL,
+    updated_by_role VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE
+);
+
+
 -- Seed Subsidiaries
 INSERT INTO subsidiaries (name, description, location, website, email, phone, employees) VALUES 
 ('George Steuart & Co.', 'The oldest mercantile establishment in Sri Lanka, George Steuart & Company is a diversified conglomerate with a heritage spanning over 185 years.', 'Colombo 03, Sri Lanka', 'www.georgesteuarts.com', 'info@gs.com', '+94 11 232 6881', 450),
@@ -154,4 +248,15 @@ INSERT INTO subsidiaries (name, description, location, website, email, phone, em
 ('George Steuart Health', 'One of the largest pharmaceutical importers and distributors in Sri Lanka, representing world-renowned healthcare brands.', 'Colombo 08, Sri Lanka', 'www.gshealth.com', 'health@gs.com', '+94 11 233 4455', 300),
 ('George Steuart Teas', 'Exporters of the finest Ceylon Tea to over 50 countries, continuing a legacy of quality and craftsmanship.', 'Colombo 13, Sri Lanka', 'www.gsteas.com', 'tea@gs.com', '+94 11 244 5566', 250),
 ('George Steuart Travels', 'A premier travel management company providing comprehensive corporate and leisure travel solutions.', 'Colombo 01, Sri Lanka', 'www.gstravels.com', 'travel@gs.com', '+94 11 211 2233', 85);
+
+
+-- Seed Users (Password is 'admin123' for all)
+INSERT INTO users (full_name, email, password, role, subsidiary_id, department, job_title, employee_no, needs_password_change) VALUES
+('Janidu Perera', 'admin@gs.com', '$2b$10$U6bZ.kfTZnIoCICC28W7MOqyHo7IomCzO4jWYVrRn1DC.p5WepzUG', 'super_admin', 1, 'IT', 'Group CTO', 'EMP-001', 0),
+('Sarah Silva', 'subadmin@gs.com', '$2b$10$oB5aVYJbbX3OW1t81E/HceR4XXKJc5S7QObVYFEZ8xwY1r7WArZ2S', 'sub_admin', 2, 'HR', 'HR Manager', 'EMP-002', 0),
+('Dilshan Rodrigo', 'employee@gs.com', '$2b$10$sYtxTrv.8WoAgo65Gl/BY.srBpiUqiDa9qFaBSnG0gdYl/mkL.cnm', 'employee', 3, 'Operations', 'Project Lead', 'EMP-003', 0),
+('IT Admin User', 'itadmin@gs.com', '$2b$10$U6bZ.kfTZnIoCICC28W7MOqyHo7IomCzO4jWYVrRn1DC.p5WepzUG', 'it_admin', 1, 'IT', 'IT Systems Manager', 'EMP-IT_ADMIN', 0),
+('HR Admin User', 'hradmin@gs.com', '$2b$10$U6bZ.kfTZnIoCICC28W7MOqyHo7IomCzO4jWYVrRn1DC.p5WepzUG', 'hr_admin', 1, 'HR', 'HR Operations Manager', 'EMP-HR_ADMIN', 0),
+('IT Support Specialist', 'itstaff@gs.com', '$2b$10$U6bZ.kfTZnIoCICC28W7MOqyHo7IomCzO4jWYVrRn1DC.p5WepzUG', 'it_staff', 1, 'IT', 'IT Support Engineer', 'EMP-IT_STAFF', 0),
+('HR Support Specialist', 'hrstaff@gs.com', '$2b$10$U6bZ.kfTZnIoCICC28W7MOqyHo7IomCzO4jWYVrRn1DC.p5WepzUG', 'hr_staff', 1, 'HR', 'HR Assistant', 'EMP-HR_STAFF', 0);
 

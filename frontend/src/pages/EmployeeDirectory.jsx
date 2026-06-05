@@ -1,13 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
-import { 
-  Search, 
-  Filter, 
-  Mail, 
-  Phone, 
-  ChevronRight, 
+import {
+  Search,
+  Filter,
+  Mail,
+  Phone,
+  ChevronRight,
   ChevronLeft,
-  UserPlus, 
-  LayoutGrid, 
+  UserPlus,
+  LayoutGrid,
   List,
   MapPin,
   Building2,
@@ -112,19 +112,19 @@ const EmployeeDirectory = () => {
 
   const filteredEmployees = useMemo(() => {
     return employees.filter(emp => {
-      const matchesSearch = 
+      const matchesSearch =
         emp.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         emp.role?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         emp.department?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         emp.subsidiary_name?.toLowerCase().includes(searchTerm.toLowerCase());
-      
+
       if (activeTab === 'My Subsidiary Members') {
         const matchesSub = Number(emp.subsidiary_id) === Number(currentUser?.subsidiary_id);
         return matchesSearch && matchesSub;
       }
-      
+
       const matchesFilter = isSubAdmin || activeFilter === 'All' || emp.subsidiary_name === activeFilter;
-      
+
       return matchesSearch && matchesFilter;
     });
   }, [employees, searchTerm, activeFilter, isSubAdmin, activeTab, currentUser]);
@@ -147,7 +147,7 @@ const EmployeeDirectory = () => {
     subCount: subsidiaries.length,
     depts: [...new Set(employees.map(e => e.department))].length,
     online: Math.floor(employees.length * 0.25), // Mock online count
-    ownSubEmployees: currentUser?.subsidiary_id 
+    ownSubEmployees: currentUser?.subsidiary_id
       ? employees.filter(e => Number(e.subsidiary_id) === Number(currentUser.subsidiary_id)).length
       : 0
   }), [employees, subsidiaries, currentUser]);
@@ -158,7 +158,7 @@ const EmployeeDirectory = () => {
       <div className="space-y-2 text-center">
         <p className="text-[10px] font-black uppercase tracking-[6px] text-slate-400 animate-pulse">Initializing API Family Intelligence</p>
         <div className="h-1 w-48 bg-slate-100 rounded-full mx-auto overflow-hidden">
-          <motion.div 
+          <motion.div
             initial={{ x: '-100%' }}
             animate={{ x: '100%' }}
             transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
@@ -205,14 +205,14 @@ const EmployeeDirectory = () => {
       </div>
 
       {/* SECTION 1 — HERO DIRECTORY BANNER */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="relative w-full rounded-[32px] overflow-hidden shadow-2xl mb-12"
       >
-        <img 
-          src="/image.png" 
-          alt="Employee Directory Cover" 
+        <img
+          src="/image.png"
+          alt="Employee Directory Cover"
           className="w-full h-auto block"
         />
       </motion.div>
@@ -220,21 +220,21 @@ const EmployeeDirectory = () => {
       {/* SECTION 5 — DIRECTORY TABS */}
       <div className="flex justify-center mb-10">
         <div className="bg-slate-100/50 p-1.5 rounded-[24px] flex flex-wrap items-center gap-1">
-           {['Employees', 'My Subsidiary Members', 'Organization Structure'].map((tab) => (
-             <button
-               key={tab}
-               onClick={() => setActiveTab(tab)}
-               className={`px-8 py-3.5 rounded-[20px] text-[10px] font-black uppercase tracking-widest transition-all relative ${activeTab === tab ? 'text-white' : 'text-slate-400 hover:text-slate-600'}`}
-             >
-               {activeTab === tab && (
-                 <motion.div 
-                   layoutId="activeTab"
-                   className="absolute inset-0 bg-slate-900 rounded-[20px] shadow-xl"
-                 />
-               )}
-               <span className="relative z-10">{tab}</span>
-             </button>
-           ))}
+          {['Employees', 'My Subsidiary Members', 'Organization Structure'].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-8 py-3.5 rounded-[20px] text-[10px] font-black uppercase tracking-widest transition-all relative ${activeTab === tab ? 'text-white' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              {activeTab === tab && (
+                <motion.div
+                  layoutId="activeTab"
+                  className="absolute inset-0 bg-slate-900 rounded-[20px] shadow-xl"
+                />
+              )}
+              <span className="relative z-10">{tab}</span>
+            </button>
+          ))}
         </div>
       </div>
 
@@ -247,7 +247,7 @@ const EmployeeDirectory = () => {
               {[
                 { label: 'Total Employees', value: stats.total, icon: Users, color: '#C8102E', bg: '#fff1f2' },
                 { label: 'Total Subsidiaries', value: stats.subCount, icon: Building2, color: '#6366f1', bg: '#eef2ff' },
-                currentUser?.subsidiary_id 
+                currentUser?.subsidiary_id
                   ? { label: 'Subsidiary Employees', value: stats.ownSubEmployees, icon: Briefcase, color: '#f59e0b', bg: '#fffbeb' }
                   : null,
                 { label: 'Online Now', value: stats.online, icon: Globe, color: '#10b981', bg: '#ecfdf5', pulse: true },
@@ -295,7 +295,7 @@ const EmployeeDirectory = () => {
                   ) : (
                     <div className="flex flex-col gap-1.5 max-h-72 overflow-y-auto no-scrollbar">
                       {[{ id: 'all', name: 'All' }, ...subsidiaries].map((sub, idx) => {
-                        const palette = ['#C8102E','#6366f1','#f59e0b','#10b981','#ec4899','#f97316','#8b5cf6','#06b6d4','#84cc16','#a855f7','#14b8a6','#fb923c'];
+                        const palette = ['#C8102E', '#6366f1', '#f59e0b', '#10b981', '#ec4899', '#f97316', '#8b5cf6', '#06b6d4', '#84cc16', '#a855f7', '#14b8a6', '#fb923c'];
                         const color = sub.name === 'All' ? '#C8102E' : palette[idx % palette.length];
                         const active = activeFilter === sub.name;
                         const count = sub.name === 'All' ? employees.length : employees.filter(e => e.subsidiary_name === sub.name).length;
@@ -320,10 +320,10 @@ const EmployeeDirectory = () => {
                   {(() => {
                     const subMap = {};
                     employees.forEach(e => { subMap[e.subsidiary_name] = (subMap[e.subsidiary_name] || 0) + 1; });
-                    const subs = Object.entries(subMap).sort((a,b) => b[1]-a[1]);
+                    const subs = Object.entries(subMap).sort((a, b) => b[1] - a[1]);
                     const total = employees.length || 1;
-                    const palette = ['#C8102E','#6366f1','#f59e0b','#10b981','#ec4899','#f97316','#8b5cf6'];
-                    const stops = subs.reduce((acc, [,v], i) => {
+                    const palette = ['#C8102E', '#6366f1', '#f59e0b', '#10b981', '#ec4899', '#f97316', '#8b5cf6'];
+                    const stops = subs.reduce((acc, [, v], i) => {
                       const pct = (v / total) * 100;
                       const prev = acc.cum;
                       acc.cum += pct;
@@ -347,7 +347,7 @@ const EmployeeDirectory = () => {
                               <div className="w-2 h-2 rounded-full shrink-0" style={{ background: palette[i % palette.length] }} />
                               <span className="text-[9px] font-bold text-slate-500 flex-1 truncate">{subName}</span>
                               <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
-                                <motion.div initial={{ width: 0 }} animate={{ width: `${(count/total*100).toFixed(0)}%` }}
+                                <motion.div initial={{ width: 0 }} animate={{ width: `${(count / total * 100).toFixed(0)}%` }}
                                   transition={{ delay: i * 0.1, duration: 0.6 }} className="h-full rounded-full"
                                   style={{ background: palette[i % palette.length] }} />
                               </div>
@@ -376,10 +376,10 @@ const EmployeeDirectory = () => {
 
                 <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6' : 'space-y-3'}>
                   {paginatedEmployees.map((emp, i) => {
-                    const dc = { IT:'#6366f1', Finance:'#f59e0b', HR:'#ec4899', Healthcare:'#10b981', Operations:'#f97316', Marketing:'#8b5cf6' };
+                    const dc = { IT: '#6366f1', Finance: '#f59e0b', HR: '#ec4899', Healthcare: '#10b981', Operations: '#f97316', Marketing: '#8b5cf6' };
                     const color = dc[emp.department] || '#64748b';
-                    const lightBg = { IT:'#eef2ff', Finance:'#fffbeb', HR:'#fdf2f8', Healthcare:'#ecfdf5', Operations:'#fff7ed', Marketing:'#f5f3ff' }[emp.department] || '#f8fafc';
-                    
+                    const lightBg = { IT: '#eef2ff', Finance: '#fffbeb', HR: '#fdf2f8', Healthcare: '#ecfdf5', Operations: '#fff7ed', Marketing: '#f5f3ff' }[emp.department] || '#f8fafc';
+
                     const subInfo = subsidiaries.find(s => Number(s.id) === Number(emp.subsidiary_id));
                     const subHeadcount = subInfo ? subInfo.employees : 0;
 
@@ -439,76 +439,74 @@ const EmployeeDirectory = () => {
 
                             <div className="flex items-center gap-2">
                               <div className="w-6 h-6 rounded-lg bg-slate-50 flex items-center justify-center shrink-0">
-                                  <MapPin className="w-3 h-3 text-slate-400" />
-                                </div>
-                                <span className="text-[10px] font-bold text-slate-500">Colombo 01 • Ext: {emp.phone?.slice(-4) || '2042'}</span>
+                                <MapPin className="w-3 h-3 text-slate-400" />
                               </div>
-                            </div>
-                            <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
-                              <div className="flex gap-1.5">
-                                {[Mail, PhoneCall, Video].map((Icon, idx) => (
-                                  <button key={idx} onClick={e => e.stopPropagation()}
-                                    className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-50 text-slate-405 hover:text-white transition-all duration-200"
-                                    style={{}} onMouseEnter={e => e.currentTarget.style.background = color} onMouseLeave={e => e.currentTarget.style.background = ''}>
-                                    <Icon className="w-3.5 h-3.5" />
-                                  </button>
-                                ))}
-                              </div>
-                              <button className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-slate-300 group-hover:text-brand-red transition-colors duration-200">
-                                Profile <ChevronRight className="w-3 h-3" />
-                              </button>
+                              <span className="text-[10px] font-bold text-slate-500">Colombo 01 • Ext: {emp.phone?.slice(-4) || '2042'}</span>
                             </div>
                           </div>
-                          <div className="absolute inset-0 rounded-[28px] border-2 border-transparent group-hover:border-brand-red/10 transition-all pointer-events-none" />
-                        </motion.div>
-                      );
-                    })}
-                  </div>
-
-                  {/* ── PAGINATION CONTROLS ── */}
-                  {totalPages > 1 && (
-                    <div className="mt-10 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white/40 backdrop-blur-xl border border-white/60 rounded-[28px] p-5 shadow-[0_12px_40px_rgba(0,0,0,0.03)] transition-all duration-300">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-1.5 h-1.5 rounded-full bg-brand-red animate-pulse" />
-                        <span className="text-xs font-semibold text-slate-550 tracking-wide">
-                          Showing <span className="font-bold text-slate-800">{Math.min((currentPage - 1) * itemsPerPage + 1, filteredEmployees.length)}</span> to <span className="font-bold text-slate-800">{Math.min(currentPage * itemsPerPage, filteredEmployees.length)}</span> of <span className="font-bold text-slate-800">{filteredEmployees.length}</span> employees
-                        </span>
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                          disabled={currentPage === 1}
-                          className={`w-10 h-10 rounded-2xl flex items-center justify-center border transition-all duration-300 ${
-                            currentPage === 1 
-                              ? 'border-slate-100 text-slate-300 bg-slate-50/20 cursor-not-allowed' 
-                              : 'border-slate-200/85 text-slate-605 bg-white hover:bg-slate-900 hover:text-white hover:border-slate-900 hover:shadow-[0_8px_20px_rgba(15,23,42,0.15)] active:scale-95'
-                          }`}
-                        >
-                          <ChevronLeft className="w-4.5 h-4.5" />
-                        </button>
-
-                        <div className="w-10 h-10 rounded-2xl text-xs font-bold flex items-center justify-center bg-gradient-to-r from-[#C8102E] to-[#A00D25] text-white shadow-[0_6px_20px_rgba(200,16,46,0.25)] select-none">
-                          {currentPage}
+                          <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
+                            <div className="flex gap-1.5">
+                              {[Mail, PhoneCall, Video].map((Icon, idx) => (
+                                <button key={idx} onClick={e => e.stopPropagation()}
+                                  className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-50 text-slate-405 hover:text-white transition-all duration-200"
+                                  style={{}} onMouseEnter={e => e.currentTarget.style.background = color} onMouseLeave={e => e.currentTarget.style.background = ''}>
+                                  <Icon className="w-3.5 h-3.5" />
+                                </button>
+                              ))}
+                            </div>
+                            <button className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-slate-300 group-hover:text-brand-red transition-colors duration-200">
+                              Profile <ChevronRight className="w-3 h-3" />
+                            </button>
+                          </div>
                         </div>
-
-                        <button
-                          onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                          disabled={currentPage === totalPages}
-                          className={`w-10 h-10 rounded-2xl flex items-center justify-center border transition-all duration-355 ${
-                            currentPage === totalPages 
-                              ? 'border-slate-100 text-slate-300 bg-slate-50/20 cursor-not-allowed' 
-                              : 'border-slate-200/85 text-slate-605 bg-white hover:bg-slate-900 hover:text-white hover:border-slate-900 hover:shadow-[0_8px_20px_rgba(15,23,42,0.15)] active:scale-95'
-                          }`}
-                        >
-                          <ChevronRight className="w-4.5 h-4.5" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                        <div className="absolute inset-0 rounded-[28px] border-2 border-transparent group-hover:border-brand-red/10 transition-all pointer-events-none" />
+                      </motion.div>
+                    );
+                  })}
                 </div>
+
+                {/* ── PAGINATION CONTROLS ── */}
+                {totalPages > 1 && (
+                  <div className="mt-10 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white/40 backdrop-blur-xl border border-white/60 rounded-[28px] p-5 shadow-[0_12px_40px_rgba(0,0,0,0.03)] transition-all duration-300">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-brand-red animate-pulse" />
+                      <span className="text-xs font-semibold text-slate-550 tracking-wide">
+                        Showing <span className="font-bold text-slate-800">{Math.min((currentPage - 1) * itemsPerPage + 1, filteredEmployees.length)}</span> to <span className="font-bold text-slate-800">{Math.min(currentPage * itemsPerPage, filteredEmployees.length)}</span> of <span className="font-bold text-slate-800">{filteredEmployees.length}</span> employees
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                        className={`w-10 h-10 rounded-2xl flex items-center justify-center border transition-all duration-300 ${currentPage === 1
+                            ? 'border-slate-100 text-slate-300 bg-slate-50/20 cursor-not-allowed'
+                            : 'border-slate-200/85 text-slate-605 bg-white hover:bg-slate-900 hover:text-white hover:border-slate-900 hover:shadow-[0_8px_20px_rgba(15,23,42,0.15)] active:scale-95'
+                          }`}
+                      >
+                        <ChevronLeft className="w-4.5 h-4.5" />
+                      </button>
+
+                      <div className="w-10 h-10 rounded-2xl text-xs font-bold flex items-center justify-center bg-gradient-to-r from-[#C8102E] to-[#A00D25] text-white shadow-[0_6px_20px_rgba(200,16,46,0.25)] select-none">
+                        {currentPage}
+                      </div>
+
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages}
+                        className={`w-10 h-10 rounded-2xl flex items-center justify-center border transition-all duration-355 ${currentPage === totalPages
+                            ? 'border-slate-100 text-slate-300 bg-slate-50/20 cursor-not-allowed'
+                            : 'border-slate-200/85 text-slate-605 bg-white hover:bg-slate-900 hover:text-white hover:border-slate-900 hover:shadow-[0_8px_20px_rgba(15,23,42,0.15)] active:scale-95'
+                          }`}
+                      >
+                        <ChevronRight className="w-4.5 h-4.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            </motion.div>
+            </div>
+          </motion.div>
         ) : (
           <motion.div
             key="org-view"
@@ -530,12 +528,12 @@ const EmployeeDirectory = () => {
               >
                 <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-red via-brand-red/60 to-transparent rounded-t-[28px]" />
                 <div className="w-20 h-28 rounded-2xl overflow-hidden border-2 border-brand-red/20 shadow-lg shrink-0">
-                  <img src="https://georgesteuart.lk/img/Sarva-Ameresekere.jpg" className="w-full h-full object-cover object-top" onError={e => e.target.src='https://ui-avatars.com/api/?name=Sarva+Ameresekere&background=C8102E&color=fff'} />
+                  <img src="https://georgesteuart.lk/img/Sarva-Ameresekere.jpg" className="w-full h-full object-cover object-top" onError={e => e.target.src = 'https://ui-avatars.com/api/?name=Sarva+Ameresekere&background=C8102E&color=fff'} />
                 </div>
                 <div className="flex-1">
                   <div className="inline-flex items-center gap-2 px-3 py-1 bg-brand-red/8 border border-brand-red/15 rounded-full mb-3">
                     <div className="w-1.5 h-1.5 rounded-full bg-brand-red animate-pulse" />
-                    <span className="text-xs font-black text-brand-red uppercase tracking-widest">Group Chairman / CEO</span>
+                    <span className="text-xs font-black text-brand-red uppercase tracking-widest">Group Chairman </span>
                   </div>
                   <p className="text-2xl font-black text-slate-900 tracking-tight leading-tight">Sarva Ameresekere</p>
                   <div className="flex items-center gap-2 mt-2">
@@ -564,7 +562,7 @@ const EmployeeDirectory = () => {
                     <div className="w-px h-8 bg-slate-200" />
                     <div className="bg-white border border-slate-100 rounded-[22px] p-5 flex flex-col items-center gap-3 w-full shadow-[0_4px_20px_rgba(0,0,0,0.06)] hover:shadow-[0_12px_40px_rgba(99,102,241,0.12)] hover:border-indigo-100 transition-all duration-300">
                       <div className="w-16 h-20 rounded-xl overflow-hidden border border-slate-100 group-hover:border-indigo-200 transition-colors shadow-sm">
-                        <img src={d.img} className="w-full h-full object-cover object-top" onError={e => e.target.src=`https://ui-avatars.com/api/?name=${d.name}&background=6366f1&color=fff`} />
+                        <img src={d.img} className="w-full h-full object-cover object-top" onError={e => e.target.src = `https://ui-avatars.com/api/?name=${d.name}&background=6366f1&color=fff`} />
                       </div>
                       <div className="text-center">
                         <p className="text-sm font-black text-slate-800 leading-tight">{d.name}</p>
@@ -595,7 +593,7 @@ const EmployeeDirectory = () => {
                   whileHover={{ y: -4 }}
                   className="group flex items-center gap-4 bg-white border border-slate-100 rounded-[20px] p-4 shadow-[0_4px_16px_rgba(0,0,0,0.05)] hover:shadow-[0_8px_32px_rgba(245,158,11,0.12)] hover:border-amber-100 transition-all duration-300">
                   <div className="w-12 h-16 rounded-xl overflow-hidden border border-slate-100 group-hover:border-amber-200 transition-colors shrink-0 shadow-sm">
-                    <img src={d.img} className="w-full h-full object-cover object-top" onError={e => e.target.src=`https://ui-avatars.com/api/?name=${d.name}&background=f59e0b&color=fff`} />
+                    <img src={d.img} className="w-full h-full object-cover object-top" onError={e => e.target.src = `https://ui-avatars.com/api/?name=${d.name}&background=f59e0b&color=fff`} />
                   </div>
                   <div>
                     <p className="text-sm font-black text-slate-800 leading-tight">{d.name}</p>
@@ -636,7 +634,7 @@ const EmployeeDirectory = () => {
                     style={{ borderTop: `6px solid ${subColor}` }}
                   >
                     {/* Subsidiary Card Header */}
-                    <div 
+                    <div
                       onClick={() => toggleSubExpand(sub.id)}
                       className="p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-slate-50 bg-slate-50/20 cursor-pointer hover:bg-slate-50/40 select-none transition-colors"
                     >
@@ -656,7 +654,7 @@ const EmployeeDirectory = () => {
                           <Users className="w-4 h-4 text-slate-400" />
                           <span className="text-xs font-black text-slate-600">{subEmps.length + subDirs.length} Portal Members</span>
                         </div>
-                        
+
                         {(subEmps.length > 0 || subDirs.length > 0) && (
                           <button
                             onClick={() => toggleSubExpand(sub.id)}
@@ -1064,7 +1062,8 @@ const EmployeeDirectory = () => {
         )}
       </AnimatePresence>
 
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         @keyframes float-slow {
           0%, 100% { transform: translateY(0) translateX(0); }
           50% { transform: translateY(-20px) translateX(10px); }

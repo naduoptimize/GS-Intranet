@@ -4,7 +4,7 @@ import {
   ChevronRight, Clock, Shield, CheckCircle2, AlertTriangle,
   Download, Paperclip, Send, Lock, User, FileText,
   Activity, X, Check, Loader2, Laptop, Heart,
-  UserPlus, Flag, StickyNote, Trash2, ArrowLeft, Printer
+  UserPlus, Flag, StickyNote, ArrowLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
@@ -241,10 +241,6 @@ const TicketDetailView = ({ department }) => {
             onClick={() => window.open(`${backendUrl}/api/tickets/export/pdf?department=${department}&userId=${user?.id}&role=${user?.role}`, '_blank')}
             className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 rounded-lg text-[10px] font-black text-slate-600 hover:bg-slate-50 transition-all uppercase tracking-wider">
             <Download className="w-3 h-3" /> Export PDF
-          </button>
-          <button onClick={() => window.print()}
-            className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 rounded-lg text-[10px] font-black text-slate-600 hover:bg-slate-50 transition-all uppercase tracking-wider">
-            <Printer className="w-3 h-3" /> Print
           </button>
         </div>
       </div>
@@ -786,10 +782,6 @@ const TicketDetailView = ({ department }) => {
                     <CheckCircle2 className="w-3.5 h-3.5" /> Resolve Ticket
                   </button>
                 )}
-                <button onClick={handleDelete}
-                  className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-[10px] font-black uppercase tracking-wider active:scale-95 transition-all">
-                  <Trash2 className="w-3.5 h-3.5" /> Delete Ticket
-                </button>
               </div>
             ) : (
               <p className="text-[10px] text-slate-400 text-center font-bold py-3">View only — no actions available</p>
@@ -824,10 +816,6 @@ const TicketDetailView = ({ department }) => {
                 <CheckCircle2 className="w-3.5 h-3.5" /> Resolve Ticket
               </button>
             )}
-            <button onClick={handleDelete}
-              className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-[10px] font-black uppercase tracking-wider active:scale-95 transition-all">
-              <Trash2 className="w-3.5 h-3.5" /> Delete Ticket
-            </button>
           </div>
         </div>
       )}
