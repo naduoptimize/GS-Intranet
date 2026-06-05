@@ -97,7 +97,12 @@ router.delete('/:id', async (req, res) => {
 // Get directors for a subsidiary
 router.get('/:id/directors', async (req, res) => {
     try {
-        const [rows] = await db.execute('SELECT * FROM subsidiary_directors WHERE subsidiary_id = ?', [req.params.id]);
+        const [rows] = await db.execute(`
+            SELECT sd.*, u.email, u.full_name AS user_name, u.job_title AS user_title, u.profile_pic AS user_profile_pic, u.is_synced
+            FROM subsidiary_directors sd
+            LEFT JOIN users u ON sd.user_id = u.id
+            WHERE sd.subsidiary_id = ?
+        `, [req.params.id]);
         res.json(rows);
     } catch (err) {
         console.error(err);
@@ -107,12 +112,30 @@ router.get('/:id/directors', async (req, res) => {
 
 // Add a director
 router.post('/:id/directors', async (req, res) => {
-    const { name, title, bio, image_url } = req.body;
-    if (!name) return res.status(400).json({ message: 'Director name is required' });
+    const { user_id, name, title, bio, image_url } = req.body;
     try {
+        let finalName = name;
+        let finalTitle = title;
+        let finalImageUrl = image_url;
+
+        if (user_id) {
+            const [users] = await db.execute('SELECT full_name, job_title, profile_pic FROM users WHERE id = ?', [user_id]);
+            if (users.length === 0) {
+                return res.status(400).json({ message: 'Linked user not found' });
+            }
+            const user = users[0];
+            finalName = finalName || user.full_name;
+            finalTitle = finalTitle || user.job_title || 'Director';
+            finalImageUrl = finalImageUrl || user.profile_pic;
+        }
+
+        if (!finalName) {
+            return res.status(400).json({ message: 'Director name is required' });
+        }
+
         const [result] = await db.execute(
-            'INSERT INTO subsidiary_directors (subsidiary_id, name, title, bio, image_url) VALUES (?, ?, ?, ?, ?)',
-            [req.params.id, name, title || null, bio || null, image_url || null]
+            'INSERT INTO subsidiary_directors (subsidiary_id, user_id, name, title, bio, image_url) VALUES (?, ?, ?, ?, ?, ?)',
+            [req.params.id, user_id || null, finalName, finalTitle || null, bio || null, finalImageUrl || null]
         );
         res.status(201).json({ id: result.insertId, message: 'Director added successfully' });
     } catch (err) {

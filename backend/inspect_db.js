@@ -30,6 +30,22 @@ async function run() {
         console.log("\nTickets table does not exist or error:", e.message);
     }
 
+    try {
+        const [dirCols] = await connection.query("DESCRIBE subsidiary_directors");
+        console.log("\nSubsidiary Directors table structure:");
+        console.table(dirCols);
+    } catch (e) {
+        console.error("Error describing subsidiary_directors:", e.message);
+    }
+
+    try {
+        const [rows] = await connection.query("SELECT DISTINCT job_title FROM users");
+        console.log("\nUnique Job Titles:");
+        console.table(rows);
+    } catch (e) {
+        console.error("Error fetching job titles:", e.message);
+    }
+
     await connection.end();
 }
 

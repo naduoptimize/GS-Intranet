@@ -15,7 +15,8 @@ import {
   Video,
   X,
   Sparkles,
-  Cloud
+  Cloud,
+  RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
@@ -34,24 +35,70 @@ const ComingSoon365 = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
+  const [syncing, setSyncing] = useState(false);
+  const [unmatchedUsers, setUnmatchedUsers] = useState([]);
+  const [showUnmatchedModal, setShowUnmatchedModal] = useState(false);
+
+  const fetchO365Data = async () => {
+    try {
+      setError(null);
+      console.log('Fetching Office 365 directory...');
+      const res = await axios.get('http://localhost:5000/api/users/office365');
+      setEmployees(res.data);
+      
+      const unmatchedRes = await axios.get('http://localhost:5000/api/users/office365/unmatched');
+      setUnmatchedUsers(unmatchedRes.data);
+    } catch (err) {
+      console.error('Failed to fetch Office 365 directory data:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to fetch Office 365 directory data');
+    }
+  };
+
   useEffect(() => {
-    const fetchO365Data = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        console.log('Fetching Office 365 users...');
-        const res = await axios.get('http://localhost:5000/api/users/office365');
-        setEmployees(res.data);
-      } catch (err) {
-        console.error('Failed to fetch Office 365 directory data:', err);
-        setError(err.response?.data?.message || err.message || 'Failed to fetch Office 365 directory data');
-      } finally {
-        setLoading(false);
-      }
+    const loadInitData = async () => {
+      setLoading(true);
+      await fetchO365Data();
+      setLoading(false);
     };
-    
-    fetchO365Data();
+    loadInitData();
   }, []);
+
+  const handleSync = async () => {
+    try {
+      setSyncing(true);
+      const res = await axios.post('http://localhost:5000/api/users/office365/sync');
+      alert(res.data.message || 'Synchronization complete.');
+      await fetchO365Data();
+    } catch (err) {
+      console.error('Sync failed:', err);
+      alert(err.response?.data?.message || err.message || 'Synchronization failed');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleActivateUser = async (userId) => {
+    try {
+      const res = await axios.patch(`http://localhost:5000/api/users/office365/activate/${userId}`);
+      alert(res.data.message || 'User activated successfully.');
+      await fetchO365Data();
+    } catch (err) {
+      console.error('Activation failed:', err);
+      alert('Failed to activate user profile.');
+    }
+  };
+
+  const handleHardDeleteUser = async (userId) => {
+    if (!window.confirm('Are you sure you want to permanently delete this user from the database? This action is irreversible.')) return;
+    try {
+      const res = await axios.delete(`http://localhost:5000/api/users/office365/hard-delete/${userId}`);
+      alert(res.data.message || 'User deleted successfully.');
+      await fetchO365Data();
+    } catch (err) {
+      console.error('Delete failed:', err);
+      alert('Failed to delete user profile.');
+    }
+  };
 
   const companies = useMemo(() => {
     const distinct = [...new Set(employees.map(e => e.subsidiary_name))].filter(Boolean);
@@ -66,7 +113,7 @@ const ComingSoon365 = () => {
         emp.department?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         emp.subsidiary_name?.toLowerCase().includes(searchTerm.toLowerCase());
       
-      const matchesFilter = activeFilter === 'All' || emp.subsidiary_name === activeFilter;
+      const matchesFilter = activeFilter === 'All' || emp.subsidiary_name?.trim() === activeFilter?.trim();
       
       return matchesSearch && matchesFilter;
     });
@@ -88,9 +135,9 @@ const ComingSoon365 = () => {
   const stats = useMemo(() => ({
     total: employees.length,
     companiesCount: companies.length,
-    depts: [...new Set(employees.map(e => e.department))].length,
+    unmatchedCount: unmatchedUsers.length,
     online: Math.floor(employees.length * 0.45) // Mock ActiveSync status
-  }), [employees, companies]);
+  }), [employees, companies, unmatchedUsers]);
 
   if (loading) return (
     <div className="min-h-[80vh] flex flex-col items-center justify-center space-y-6 bg-slate-50 dark:bg-slate-900 transition-colors">
@@ -115,6 +162,23 @@ const ComingSoon365 = () => {
       <div className="fixed inset-0 pointer-events-none -z-10">
         <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-blue-500/[0.03] rounded-full blur-[150px] -translate-y-1/2 translate-x-1/2" />
         <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-indigo-500/[0.02] rounded-full blur-[120px] translate-y-1/2 -translate-x-1/2" />
+      </div>
+
+      {/* TOP BAR WITH SYNC BUTTON */}
+      <div className="flex justify-between items-center mb-6 pt-4">
+        <div className="flex items-center gap-2">
+          {/* Breadcrumbs or alignment placeholder */}
+        </div>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={handleSync}
+            disabled={syncing}
+            className="flex items-center gap-2.5 px-6 py-3 bg-[#0078d4] hover:bg-[#005a9e] disabled:bg-slate-300 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-md hover:shadow-lg disabled:cursor-not-allowed hover:-translate-y-0.5 active:translate-y-0 active:scale-98 cursor-pointer"
+          >
+            <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Syncing...' : 'Sync with 365'}
+          </button>
+        </div>
       </div>
 
       {/* SECTION 1 — HERO DIRECTORY BANNER */}
@@ -158,11 +222,12 @@ const ComingSoon365 = () => {
             {[
               { label: 'Total 365 Users', value: stats.total, icon: Users, color: '#0078d4', bg: '#e0f0ff' },
               { label: 'O365 Organizations', value: stats.companiesCount, icon: Building2, color: '#6366f1', bg: '#eef2ff' },
-              { label: 'Cloud Departments', value: stats.depts, icon: Briefcase, color: '#f59e0b', bg: '#fffbeb' },
+              { label: 'Not Matching Emails', value: stats.unmatchedCount, icon: Mail, color: '#f59e0b', bg: '#fffbeb', clickable: true },
               { label: 'ActiveSync Connected', value: stats.online, icon: Globe, color: '#10b981', bg: '#ecfdf5', pulse: true },
             ].map((s, i) => (
               <motion.div key={i} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}
-                className="relative bg-white/70 backdrop-blur-xl border border-white rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.07)] hover:shadow-[0_16px_48px_rgba(0,0,0,0.12)] transition-all duration-300 overflow-hidden group">
+                onClick={() => s.clickable && unmatchedUsers.length > 0 && setShowUnmatchedModal(true)}
+                className={`relative bg-white/70 backdrop-blur-xl border border-white rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.07)] hover:shadow-[0_16px_48px_rgba(0,0,0,0.12)] transition-all duration-300 overflow-hidden group ${s.clickable && unmatchedUsers.length > 0 ? 'cursor-pointer hover:border-amber-500/40' : ''}`}>
                 <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ background: `radial-gradient(circle at top right, ${s.color}08, transparent 70%)` }} />
                 <div className="flex items-start justify-between mb-4">
                   <div className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-sm" style={{ background: s.bg }}>
@@ -187,7 +252,7 @@ const ComingSoon365 = () => {
                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-[3px] mb-3">Search Cloud</p>
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
-                  <input type="text" placeholder="Name, role, department..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                  <input type="text" placeholder="Name, role, department..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                     className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm text-slate-700 placeholder:text-slate-300 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/30 transition-all font-medium" />
                 </div>
               </div>
@@ -195,14 +260,14 @@ const ComingSoon365 = () => {
               {/* Organization Filter */}
               <div className="bg-white/70 backdrop-blur-xl border border-white rounded-3xl p-5 shadow-[0_8px_24px_rgba(0,0,0,0.06)]">
                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-[3px] mb-3">Filter by Tenant/Company</p>
-                <div className="flex flex-col gap-1.5 max-h-72 overflow-y-auto no-scrollbar">
+                <div className="flex flex-col gap-1.5 max-h-72 overflow-y-auto custom-scrollbar pr-1">
                   {[{ id: 'all', name: 'All' }, ...companies.map(c => ({ id: c, name: c }))].map((comp, idx) => {
                     const palette = ['#0078d4','#6366f1','#f59e0b','#10b981','#ec4899','#f97316','#8b5cf6'];
                     const color = comp.name === 'All' ? '#0078d4' : palette[idx % palette.length];
                     const active = activeFilter === comp.name;
                     const count = comp.name === 'All' ? employees.length : employees.filter(e => e.subsidiary_name === comp.name).length;
                     return (
-                      <button key={comp.id} onClick={() => setActiveFilter(comp.name)}
+                      <button key={comp.id} onClick={() => { setActiveFilter(comp.name); setCurrentPage(1); }}
                         className={`flex items-center gap-3 px-4 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all text-left ${active ? 'text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}
                         style={active ? { background: color } : {}}>
                         <div className="w-2 h-2 rounded-full shrink-0" style={{ background: color, opacity: active ? 1 : 0.5 }} />
@@ -438,6 +503,77 @@ const ComingSoon365 = () => {
                     </div>
                   </div>
                 </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* UNMATCHED EMAILS POPUP MODAL */}
+      <AnimatePresence>
+        {showUnmatchedModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              onClick={() => setShowUnmatchedModal(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" 
+            />
+
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }} 
+              animate={{ opacity: 1, scale: 1, y: 0 }} 
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-white dark:bg-slate-800 rounded-[36px] max-w-xl w-full overflow-hidden shadow-2xl z-10 border border-slate-100 dark:border-slate-700 flex flex-col max-h-[80vh]"
+            >
+              {/* Header */}
+              <div className="p-6 bg-gradient-to-r from-amber-500 to-orange-600 text-white flex items-center justify-between shrink-0">
+                <div className="space-y-1">
+                  <h3 className="text-xl font-black tracking-tight text-white">Unmatched Email Accounts</h3>
+                  <p className="text-[10px] text-white/90 font-semibold">Synced profiles in the database that are missing from Microsoft 365 Graph.</p>
+                </div>
+                <button 
+                  onClick={() => setShowUnmatchedModal(false)}
+                  className="w-8 h-8 rounded-full bg-black/15 text-white flex items-center justify-center hover:bg-black/35 transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* List Container */}
+              <div className="flex-1 overflow-y-auto p-6 custom-scrollbar space-y-4">
+                {unmatchedUsers.length === 0 ? (
+                  <div className="text-center py-12 text-slate-400 font-semibold text-xs">
+                    No unmatched email accounts found.
+                  </div>
+                ) : (
+                  unmatchedUsers.map(emp => (
+                    <div key={emp.id} className="bg-slate-50 dark:bg-slate-700/30 border border-slate-100 dark:border-slate-700/50 rounded-2xl p-4 flex items-center justify-between gap-4">
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-sm font-black text-slate-800 dark:text-white truncate">{emp.full_name}</h4>
+                        <p className="text-[10px] font-bold text-[#0078d4] dark:text-blue-400 truncate mt-0.5">{emp.email}</p>
+                        <p className="text-[8px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider mt-1">{emp.subsidiary_name || 'Office 365'}</p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button 
+                          onClick={() => handleActivateUser(emp.id)}
+                          className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition-all shadow-sm active:scale-95 flex items-center gap-1 cursor-pointer"
+                          title="Activate user & ignore future sync deactivations"
+                        >
+                          Activate
+                        </button>
+                        <button 
+                          onClick={() => handleHardDeleteUser(emp.id)}
+                          className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition-all shadow-sm active:scale-95 flex items-center gap-1 cursor-pointer"
+                          title="Permanently delete user from database"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </motion.div>
           </div>
