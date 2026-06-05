@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const axios = require('axios');
 
 // Login Route
 router.post('/login', async (req, res) => {
@@ -181,6 +182,110 @@ router.post('/register-super-admin', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Server error. Please try again.' });
+    }
+});
+
+// Microsoft 365 OAuth Login Redirect Route
+router.get('/microsoft', (req, res) => {
+    const clientId = process.env.AZURE_CLIENT_ID;
+    const tenantId = process.env.AZURE_TENANT_ID;
+    const redirectUri = process.env.AZURE_REDIRECT_URI || 'http://localhost:5000/api/auth/microsoft/callback';
+    
+    if (!clientId || !tenantId) {
+        console.error('SSO configuration missing. Tenant ID or Client ID not found in .env.');
+        return res.status(500).json({ message: 'Microsoft Graph API configuration is missing.' });
+    }
+    
+    const authUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&response_mode=query&scope=openid%20profile%20email%20User.Read`;
+    res.redirect(authUrl);
+});
+
+// Microsoft 365 OAuth Callback Route
+router.get('/microsoft/callback', async (req, res) => {
+    const { code, error } = req.query;
+    
+    if (error) {
+        console.error('Microsoft OAuth error returned to callback:', error);
+        return res.redirect('http://localhost:5173/login?error=auth_failed');
+    }
+    
+    if (!code) {
+        return res.redirect('http://localhost:5173/login?error=no_code');
+    }
+    
+    const clientId = process.env.AZURE_CLIENT_ID;
+    const tenantId = process.env.AZURE_TENANT_ID;
+    const clientSecret = process.env.AZURE_CLIENT_SECRET;
+    const redirectUri = process.env.AZURE_REDIRECT_URI || 'http://localhost:5000/api/auth/microsoft/callback';
+    
+    try {
+        // Exchange code for Access Token
+        const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
+        const params = new URLSearchParams();
+        params.append('client_id', clientId);
+        params.append('scope', 'openid profile email User.Read');
+        params.append('code', code);
+        params.append('redirect_uri', redirectUri);
+        params.append('grant_type', 'authorization_code');
+        params.append('client_secret', clientSecret);
+        
+        const tokenRes = await axios.post(tokenUrl, params.toString(), {
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        });
+        
+        const accessToken = tokenRes.data.access_token;
+        if (!accessToken) throw new Error('Token exchange failed.');
+        
+        // Fetch user profile from Microsoft Graph
+        const profileRes = await axios.get('https://graph.microsoft.com/v1.0/me', {
+            headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        
+        const email = (profileRes.data.mail || profileRes.data.userPrincipalName || '').toLowerCase().trim();
+        
+        if (!email) {
+            return res.redirect('http://localhost:5173/login?error=no_email');
+        }
+        
+        // Check if user exists and is active in local database
+        const [rows] = await db.execute(`
+            SELECT u.*, s.name as subsidiary_name 
+            FROM users u 
+            LEFT JOIN subsidiaries s ON u.subsidiary_id = s.id 
+            WHERE u.email = ? AND u.is_active = TRUE
+        `, [email]);
+        
+        if (rows.length === 0) {
+            return res.redirect('http://localhost:5173/login?error=not_registered');
+        }
+        
+        const user = rows[0];
+        
+        // Generate JWT Token
+        const token = jwt.sign(
+            { id: user.id, role: user.role, subsidiary_id: user.subsidiary_id, department: user.department },
+            process.env.JWT_SECRET,
+            { expiresIn: '24h' }
+        );
+        
+        const userData = {
+            id: user.id,
+            full_name: user.full_name,
+            email: user.email,
+            role: user.role,
+            department: user.department,
+            subsidiary_id: user.subsidiary_id,
+            subsidiary_name: user.subsidiary_name,
+            profile_pic: user.profile_pic,
+            needs_password_change: user.needs_password_change
+        };
+        
+        // Redirect back to frontend login with token and user details
+        return res.redirect(`http://localhost:5173/login?token=${token}&user=${encodeURIComponent(JSON.stringify(userData))}`);
+        
+    } catch (err) {
+        console.error('Microsoft Authentication Error:', err.message);
+        return res.redirect('http://localhost:5173/login?error=server_error');
     }
 });
 

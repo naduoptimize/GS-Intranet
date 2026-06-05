@@ -23,7 +23,6 @@ import ForcePasswordChange from './pages/ForcePasswordChange';
 import News from './pages/News';
 import AdminNews from './pages/AdminNews';
 import MemoriesWall from './pages/MemoriesWall';
-import RegisterPage from './pages/RegisterPage';
 import AdminCalendar from './pages/AdminCalendar';
 import AdminMemories from './pages/AdminMemories';
 import DirectMessages from './pages/DirectMessages';
@@ -99,7 +98,7 @@ function App() {
           {/* Public Routes */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/register" element={<Navigate to="/login" replace />} />
           <Route path="/force-password-change" element={
             <ProtectedRoute>
               <ForcePasswordChange />
