@@ -90,7 +90,7 @@ const TicketDetailView = ({ department }) => {
     if (!ticket?.sla_deadline) return;
     const update = () => setSlaRemaining(new Date(ticket.sla_deadline) - new Date());
     update();
-    const t = setInterval(update, 30000);
+    const t = setInterval(update, 1000);
     return () => clearInterval(t);
   }, [ticket?.sla_deadline]);
 
@@ -109,7 +109,8 @@ const TicketDetailView = ({ department }) => {
     if (slaRemaining <= 0) return 'Breached';
     const h = Math.floor(slaRemaining / 3600000);
     const m = Math.floor((slaRemaining % 3600000) / 60000);
-    return h >= 24 ? `${Math.floor(h / 24)}d ${h % 24}h remaining` : `${h}h ${m}m remaining`;
+    const s = Math.floor((slaRemaining % 60000) / 1000);
+    return h >= 24 ? `${Math.floor(h / 24)}d ${h % 24}h remaining` : `${h}h ${m}m ${s}s remaining`;
   };
 
   const staffList = usersList.filter(u =>
@@ -730,9 +731,13 @@ const TicketDetailView = ({ department }) => {
                     : slaBreached
                     ? <><AlertTriangle className="w-5 h-5 text-rose-500 mb-0.5" /><span className="text-[10px] font-black text-rose-600">Breached</span></>
                     : <>
-                        <span className="text-2xl font-black text-slate-800 leading-none">{slaRemaining ? `${Math.floor(slaRemaining/3600000)}h` : '—'}</span>
-                        <span className="text-sm font-black text-slate-800 leading-none">{slaRemaining ? `${Math.floor((slaRemaining%3600000)/60000)}m` : ''}</span>
-                        <span className="text-[9px] font-bold text-slate-400 mt-0.5">Remaining</span>
+                        <span className="text-2xl font-black text-slate-800 leading-none">
+                          {slaRemaining ? (Math.floor(slaRemaining/3600000) >= 24 ? `${Math.floor(slaRemaining/86400000)}d` : `${Math.floor(slaRemaining/3600000)}h`) : '—'}
+                        </span>
+                        <span className="text-xs font-black text-slate-700 leading-none mt-1">
+                          {slaRemaining ? (Math.floor(slaRemaining/3600000) >= 24 ? `${Math.floor((slaRemaining%86400000)/3600000)}h ${Math.floor((slaRemaining%3600000)/60000)}m` : `${Math.floor((slaRemaining%3600000)/60000)}m ${Math.floor((slaRemaining%60000)/1000)}s`) : ''}
+                        </span>
+                        <span className="text-[9px] font-bold text-slate-400 mt-1">Remaining</span>
                       </>
                   }
                 </div>

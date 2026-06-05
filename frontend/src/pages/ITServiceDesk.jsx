@@ -124,13 +124,107 @@ const ITServiceDesk = () => {
 
   // Form State for creating IT ticket
   const [subject, setSubject] = useState('');
-  const [category, setCategory] = useState('User Issue');
+  const [category, setCategory] = useState('');
   const [priority, setPriority] = useState('medium');
   const [description, setDescription] = useState('');
   const [submitLoading, setSubmitLoading] = useState(false);
   const [formSuccess, setFormSuccess] = useState(false);
   const [attachedFile, setAttachedFile] = useState(null);
   const fileInputRef = useRef(null);
+  const [deadline, setDeadline] = useState('');
+  const [customCategory, setCustomCategory] = useState('');
+
+  // Reset form states on modal close
+  useEffect(() => {
+    if (!showFormModal) {
+      setSubject('');
+      setCategory('');
+      setPriority('medium');
+      setDescription('');
+      setDeadline('');
+      setCustomCategory('');
+      setAttachedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  }, [showFormModal]);
+
+  // SLA Live Countdown State & Helpers
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const [submitCountdown, setSubmitCountdown] = useState('');
+  useEffect(() => {
+    if (!deadline) {
+      setSubmitCountdown('');
+      return;
+    }
+    const update = () => {
+      const diff = new Date(deadline) - new Date();
+      if (diff <= 0) {
+        return 'Deadline has already passed!';
+      }
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      
+      if (h >= 24) {
+        return `${Math.floor(h / 24)}d ${h % 24}h remaining`;
+      }
+      return `${h}h ${m}m ${s}s remaining`;
+    };
+    setSubmitCountdown(update());
+    const interval = setInterval(() => setSubmitCountdown(update()), 1000);
+    return () => clearInterval(interval);
+  }, [deadline]);
+
+  const formatSlaCountdown = (t) => {
+    const isDone = ['resolved', 'closed'].includes(t.status);
+    if (isDone) return '✓ Completed';
+    if (!t.sla_deadline) return 'N/A';
+    
+    const diff = new Date(t.sla_deadline) - now;
+    if (diff <= 0) return '⚠ Breached';
+    
+    const h = Math.floor(diff / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    const s = Math.floor((diff % 60000) / 1000);
+    
+    if (h >= 24) {
+      return `${Math.floor(h / 24)}d ${h % 24}h remaining`;
+    }
+    return `${h}h ${m}m ${s}s remaining`;
+  };
+
+  const getSlaPercent = (t) => {
+    const isDone = ['resolved', 'closed'].includes(t.status);
+    if (isDone) return 100;
+    if (!t.sla_deadline || !t.created_at) return 50;
+    
+    const total = new Date(t.sla_deadline) - new Date(t.created_at);
+    if (total <= 0) return 0;
+    
+    const remaining = new Date(t.sla_deadline) - now;
+    return Math.min(100, Math.max(0, (remaining / total) * 100));
+  };
+
+  const getSlaColor = (t) => {
+    const isDone = ['resolved', 'closed'].includes(t.status);
+    if (isDone) return '#10b981';
+    if (!t.sla_deadline) return '#64748b';
+    
+    const diff = new Date(t.sla_deadline) - now;
+    if (diff <= 0) return '#e11d48';
+    
+    const percent = getSlaPercent(t);
+    if (percent > 50) return '#10b981';
+    if (percent > 20) return '#f59e0b';
+    return '#e11d48';
+  };
 
   const categories = [
     { id: 'User Issue', label: 'User Support Issue', icon: User },
@@ -303,7 +397,8 @@ const ITServiceDesk = () => {
   // Submit new IT ticket
   const handleSubmitTicket = async (e) => {
     e.preventDefault();
-    if (!subject.trim() || !description.trim()) return;
+    if (!subject.trim() || !description.trim() || !category) return;
+    if (category === 'Other' && !customCategory.trim()) return;
 
     setSubmitLoading(true);
     try {
@@ -311,9 +406,10 @@ const ITServiceDesk = () => {
         userId: user?.id,
         subject,
         department: 'it',
-        category,
+        category: category === 'Other' ? customCategory : category,
         priority,
         description,
+        deadline: deadline || null
       });
 
       const newId = res.data.id;
@@ -335,7 +431,7 @@ const ITServiceDesk = () => {
 
       setFormSuccess(true);
       setTimeout(() => {
-        setSubject(''); setDescription(''); setCategory('User Issue'); setPriority('medium'); setAttachedFile(null);
+        setSubject(''); setDescription(''); setCategory(''); setPriority('medium'); setAttachedFile(null); setDeadline(''); setCustomCategory('');
         setShowFormModal(false); setFormSuccess(false); 
         fetchTickets();
         fetchAnalytics();
@@ -774,59 +870,54 @@ const ITServiceDesk = () => {
                                   <div className="p-6 space-y-6">
                                     {/* Requester Context & SLA */}
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">SLA Response Limit</p>
-                                        {hasExtension ? (
-                                          <div className="flex flex-col gap-1 mt-1">
-                                            <div className="flex items-center gap-1.5 flex-wrap">
-                                              <span className="text-[10px] line-through text-slate-400 font-bold flex items-center gap-1">
-                                                <Clock className="w-3.5 h-3.5 text-slate-400" /> Original: {originalDeadlineVal}
-                                              </span>
-                                              <span className="text-[8px] bg-amber-50 text-amber-700 font-black px-1.5 py-0.5 rounded border border-amber-200">
-                                                Extended
-                                              </span>
-                                            </div>
-                                            <p className="text-xs font-black text-slate-700 flex items-center gap-1.5 flex-wrap">
-                                              <Clock className="w-4 h-4 text-blue-600" /> Current: {detailObj.sla_deadline ? new Date(detailObj.sla_deadline).toLocaleString() : 'N/A'}
-                                              {(user?.role === 'super_admin' || user?.role === 'it_admin' || user?.id === t.assigned_to_id) && (
-                                                <button
-                                                  type="button"
-                                                  onClick={() => {
-                                                    setEditingTicket(t);
-                                                    setTempDeadline(t.sla_deadline ? new Date(t.sla_deadline).toISOString().slice(0, 16) : '');
-                                                    setExtensionReason('');
-                                                    setShowExtensionModal(true);
-                                                  }}
-                                                  className="text-blue-600 hover:underline text-[9px] font-black uppercase tracking-wider ml-1.5"
-                                                >
-                                                  Edit
-                                                </button>
-                                              )}
-                                            </p>
-                                            {detailObj.extension_reason && (
-                                              <p className="text-[10px] text-slate-500 font-semibold bg-white border border-slate-100 px-2 py-1 rounded-lg mt-0.5 max-w-sm">
-                                                <span className="font-bold text-slate-600">Reason:</span> {detailObj.extension_reason}
+                                      <div className="bg-white border border-slate-200 p-5 rounded-2xl space-y-3">
+                                        <div className="flex items-center justify-between flex-wrap gap-2">
+                                          <div className="flex items-center gap-2">
+                                            <Clock className="w-4.5 h-4.5 text-slate-400 animate-pulse" />
+                                            <div>
+                                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">SLA Deadline</p>
+                                              <p className="text-xs font-black text-slate-700 flex items-center gap-1.5 flex-wrap">
+                                                {detailObj.sla_deadline ? new Date(detailObj.sla_deadline).toLocaleString() : 'N/A'}
+                                                {hasExtension && (
+                                                  <span className="text-[8px] bg-amber-50 text-amber-700 font-black px-1.5 py-0.5 rounded border border-amber-200">
+                                                    Extended
+                                                  </span>
+                                                )}
+                                                {(user?.role === 'super_admin' || user?.role === 'it_admin' || user?.id === t.assigned_to_id) && (
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                      setEditingTicket(t);
+                                                      setTempDeadline(t.sla_deadline ? new Date(t.sla_deadline).toISOString().slice(0, 16) : '');
+                                                      setExtensionReason('');
+                                                      setShowExtensionModal(true);
+                                                    }}
+                                                    className="text-blue-600 hover:underline text-[9px] font-black uppercase tracking-wider"
+                                                  >
+                                                    Edit
+                                                  </button>
+                                                )}
                                               </p>
-                                            )}
+                                            </div>
                                           </div>
-                                        ) : (
-                                          <p className="text-xs font-black text-slate-700 mt-1 flex items-center gap-1.5">
-                                            <Clock className="w-4 h-4 text-blue-600" /> {detailObj.sla_deadline ? new Date(detailObj.sla_deadline).toLocaleString() : 'N/A'}
-                                            {(user?.role === 'super_admin' || user?.role === 'it_admin' || user?.id === t.assigned_to_id) && (
-                                              <button
-                                                type="button"
-                                                onClick={() => {
-                                                  setEditingTicket(t);
-                                                  setTempDeadline(t.sla_deadline ? new Date(t.sla_deadline).toISOString().slice(0, 16) : '');
-                                                  setExtensionReason('');
-                                                  setShowExtensionModal(true);
-                                                }}
-                                                className="text-blue-600 hover:underline text-[9px] font-black uppercase tracking-wider ml-1.5"
-                                              >
-                                                Edit
-                                              </button>
-                                            )}
-                                          </p>
+                                          
+                                          <div className="text-right">
+                                            <span className="text-xs font-black text-slate-700" style={{ color: getSlaColor(detailObj) }}>
+                                              {formatSlaCountdown(detailObj)}
+                                            </span>
+                                          </div>
+                                        </div>
+                                        
+                                        {detailObj.sla_deadline && detailObj.created_at && (
+                                          <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                            <div 
+                                              className="h-full rounded-full transition-all duration-1000" 
+                                              style={{ 
+                                                width: `${getSlaPercent(detailObj)}%`,
+                                                backgroundColor: getSlaColor(detailObj)
+                                              }}
+                                            />
+                                          </div>
                                         )}
                                       </div>
 
@@ -1520,13 +1611,35 @@ const ITServiceDesk = () => {
                         <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Category</label>
                         <select
                           value={category}
-                          onChange={(e) => setCategory(e.target.value)}
+                          onChange={(e) => {
+                            setCategory(e.target.value);
+                            if (e.target.value !== 'Other') {
+                              setCustomCategory('');
+                            }
+                          }}
                           className="w-full bg-slate-50 border border-slate-200 px-3 py-3.5 rounded-xl text-xs font-bold text-slate-650 focus:outline-none focus:border-blue-400 focus:bg-white cursor-pointer shadow-sm"
+                          required
                         >
+                          <option value="">— Select Category —</option>
                           {categories.map(cat => (
                             <option key={cat.id} value={cat.id}>{cat.label}</option>
                           ))}
+                          <option value="Other">Other...</option>
                         </select>
+
+                        {category === 'Other' && (
+                          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mt-3">
+                            <label className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Specify Category</label>
+                            <input
+                              type="text"
+                              value={customCategory}
+                              onChange={(e) => setCustomCategory(e.target.value)}
+                              placeholder="Type custom category..."
+                              className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-slate-700 placeholder-slate-300 font-bold text-xs focus:outline-none focus:border-blue-400 focus:bg-white transition-all shadow-sm"
+                              required
+                            />
+                          </motion.div>
+                        )}
                       </div>
 
                       <div>
@@ -1547,6 +1660,31 @@ const ITServiceDesk = () => {
                         </div>
                       </div>
                     </div>
+
+                     <div>
+                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Required Deadline</label>
+                      <input
+                        type="datetime-local"
+                        value={deadline}
+                        onChange={(e) => setDeadline(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 px-4 py-3.5 rounded-xl text-slate-705 font-bold text-xs focus:outline-none focus:border-blue-400 focus:bg-white transition-all shadow-sm mb-4"
+                      />
+                    </div>
+
+                    {deadline && (
+                      <div className="mb-4 bg-blue-50/50 border border-blue-100 rounded-xl p-3.5 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-blue-600 animate-pulse" />
+                          <div>
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block font-bold">Estimated SLA Duration</span>
+                            <span className="text-xs font-black text-slate-750">{submitCountdown || 'Calculating...'}</span>
+                          </div>
+                        </div>
+                        <span className="text-[8px] bg-blue-100 text-blue-700 font-black px-2 py-0.5 rounded uppercase tracking-wider">
+                          {priority} priority
+                        </span>
+                      </div>
+                    )}
 
                     <div>
                       <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Description</label>
