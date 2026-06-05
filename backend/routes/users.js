@@ -51,6 +51,95 @@ router.get('/birthdays', async (req, res) => {
     }
 });
 
+const axios = require('axios');
+
+// Get Microsoft Office 365 Users from Microsoft Graph API
+router.get('/office365', async (req, res) => {
+    const clientId = process.env.AZURE_CLIENT_ID;
+    const tenantId = process.env.AZURE_TENANT_ID;
+    const clientSecret = process.env.AZURE_CLIENT_SECRET;
+
+    if (!clientId || !tenantId || !clientSecret) {
+        return res.status(500).json({ 
+            message: 'Microsoft Graph API is not configured. Please check your .env file.' 
+        });
+    }
+
+    try {
+        // 1. Get Access Token via OAuth2 Client Credentials grant
+        const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
+        const tokenParams = new URLSearchParams();
+        tokenParams.append('client_id', clientId);
+        tokenParams.append('scope', 'https://graph.microsoft.com/.default');
+        tokenParams.append('client_secret', clientSecret);
+        tokenParams.append('grant_type', 'client_credentials');
+
+        console.log('Fetching Microsoft Graph access token...');
+        const tokenRes = await axios.post(tokenUrl, tokenParams.toString(), {
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        });
+
+        const accessToken = tokenRes.data.access_token;
+        if (!accessToken) {
+            throw new Error('Failed to retrieve access token from token response.');
+        }
+
+        // 2. Query Microsoft Graph users iteratively to get all pages (resolving the 100 limit)
+        console.log('Querying Microsoft Graph users...');
+        let graphUsers = [];
+        let nextLink = `https://graph.microsoft.com/v1.0/users?$select=id,displayName,mail,userPrincipalName,jobTitle,department,mobilePhone,businessPhones,companyName&$top=999`;
+
+        while (nextLink) {
+            console.log(`Fetching page from Microsoft Graph: ${nextLink}`);
+            const usersRes = await axios.get(nextLink, {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Accept': 'application/json'
+                }
+            });
+            
+            const pageUsers = usersRes.data.value || [];
+            graphUsers = graphUsers.concat(pageUsers);
+            
+            // Graph API returns the next page URL in @odata.nextLink when more records exist
+            nextLink = usersRes.data['@odata.nextLink'] || null;
+        }
+
+        console.log(`Successfully retrieved ${graphUsers.length} total users from Microsoft Graph.`);
+        
+        // 3. Map Microsoft Graph users to local standard structure
+        const mappedUsers = graphUsers.map(u => {
+            const phoneVal = u.mobilePhone || (Array.isArray(u.businessPhones) && u.businessPhones[0]) || 'N/A';
+            return {
+                id: u.id,
+                full_name: u.displayName || 'Unnamed User',
+                email: u.mail || u.userPrincipalName || 'N/A',
+                role: u.jobTitle || 'O365 Account',
+                job_title: u.jobTitle || 'O365 Account',
+                // Department part is Company Name, Company Name is Department part
+                department: u.companyName || 'Office 365',
+                phone: phoneVal,
+                subsidiary_name: u.department || 'George Steuart Group',
+                profile_pic: null // Let frontend generate fallback avatars using name initials
+            };
+        });
+
+        res.json(mappedUsers);
+    } catch (err) {
+        console.error('Error fetching Office 365 users:', err.message);
+        if (err.response) {
+            console.error('Microsoft Identity Response Error Data:', err.response.data);
+            return res.status(err.response.status || 500).json({ 
+                message: 'Microsoft Graph API returned an error', 
+                details: err.response.data 
+            });
+        }
+        res.status(500).json({ message: 'Server error fetching Office 365 users', error: err.message });
+    }
+});
+
 // Get a single user's detailed info
 router.get('/:id', async (req, res) => {
     try {

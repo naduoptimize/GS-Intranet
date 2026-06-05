@@ -1,4 +1,5 @@
-import { NavLink } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 import {
   Rss,
   Building2,
@@ -27,6 +28,16 @@ import { motion } from 'framer-motion';
 
 const Sidebar = ({ onClose }) => {
   const { user } = useAuth();
+  const location = useLocation();
+
+  const isDirectoryActive = location.pathname.startsWith('/directory') || location.pathname.startsWith('/365-directory');
+  const [isDirectoryOpen, setIsDirectoryOpen] = useState(isDirectoryActive);
+
+  useEffect(() => {
+    if (isDirectoryActive) {
+      setIsDirectoryOpen(true);
+    }
+  }, [location.pathname, isDirectoryActive]);
 
   const isAdmin = user?.role === 'super_admin' || user?.role === 'sub_admin' || user?.role === 'it_admin' || user?.role === 'hr_admin';
 
@@ -58,7 +69,14 @@ const Sidebar = ({ onClose }) => {
         { name: 'Dashboard', icon: LayoutGrid, path: '/' },
         { name: 'Company Feed', icon: Rss, path: '/feed', badge: 'NEW' },
         { name: 'Subsidiaries', icon: Building2, path: '/subsidiary' },
-        { name: 'Employee Directory', icon: Users, path: '/directory' },
+        {
+          name: 'Employee Directory',
+          icon: Users,
+          subItems: [
+            { name: 'All Employees', path: '/directory' },
+            { name: '365 Employees', path: '/365-directory' }
+          ]
+        },
         { name: 'Direct Messages', icon: MessageSquare, path: '/messages' },
         { name: 'Media Center', icon: Newspaper, path: '/news' },
         { name: 'Memories Wall', icon: Camera, path: '/memories' },
@@ -121,45 +139,109 @@ const Sidebar = ({ onClose }) => {
           <div key={idx} className="space-y-4">
             <p className="px-5 text-[11px] font-black text-white/40 uppercase tracking-[4px]">{section.label}</p>
             <div className="space-y-1.5">
-              {section.items.map((item) => (
-                <NavLink
-                  key={item.name}
-                  to={item.path}
-                  onClick={() => {
-                    if (window.innerWidth < 1024) onClose();
-                  }}
-                  className={({ isActive }) =>
-                    `flex items-center gap-4 px-5 py-3.5 rounded-[20px] transition-all duration-300 group relative ${isActive
-                      ? 'bg-white text-brand-red shadow-2xl shadow-black/20 font-black scale-[1.02]'
-                      : 'hover:bg-white/10 hover:text-white font-bold'
-                    }`
-                  }
-                >
-                  {({ isActive }) => (
-                    <>
-                      <item.icon className={`w-5.5 h-5.5 transition-transform group-hover:scale-110 ${isActive ? 'text-brand-red' : 'text-white/60 group-hover:text-white'}`} />
-                      <span className="text-[15px] tracking-tight">{item.name}</span>
+              {section.items.map((item) => {
+                if (item.subItems) {
+                  const isExpanded = item.name === 'Employee Directory' ? isDirectoryOpen : false;
+                  const toggleExpand = () => {
+                    if (item.name === 'Employee Directory') {
+                      setIsDirectoryOpen(!isDirectoryOpen);
+                    }
+                  };
+                  const isAnySubActive = item.subItems.some(sub => location.pathname === sub.path);
 
-                      {item.badge && (
-                        <span className="ml-auto bg-brand-red text-white text-[8px] px-2 py-0.5 rounded-full font-black tracking-widest shadow-lg">
-                          {item.badge}
-                        </span>
-                      )}
+                  return (
+                    <div key={item.name} className="space-y-1">
+                      <button
+                        onClick={toggleExpand}
+                        className={`w-full flex items-center gap-4 px-5 py-3.5 rounded-[20px] transition-all duration-300 group relative text-left outline-none cursor-pointer ${isAnySubActive
+                          ? 'bg-white/15 text-white shadow-lg font-black'
+                          : 'hover:bg-white/10 hover:text-white font-bold'
+                        }`}
+                      >
+                        <item.icon className={`w-5.5 h-5.5 transition-transform group-hover:scale-110 ${isAnySubActive ? 'text-white' : 'text-white/60 group-hover:text-white'}`} />
+                        <span className="text-[15px] tracking-tight">{item.name}</span>
+                        <ChevronDown className={`w-4 h-4 ml-auto transition-transform duration-300 ${isExpanded ? 'rotate-180 text-white' : 'text-white/40 group-hover:text-white'}`} />
+                      </button>
 
-                      {isActive && (
-                        <motion.div
-                          layoutId="activeIndicator"
-                          className="absolute left-[-12px] w-1.5 h-8 bg-white rounded-r-full shadow-[2px_0_8px_rgba(255,255,255,0.5)]"
-                        />
-                      )}
+                      <motion.div
+                        initial={false}
+                        animate={{ height: isExpanded ? 'auto' : 0, opacity: isExpanded ? 1 : 0 }}
+                        transition={{ duration: 0.25, ease: 'easeInOut' }}
+                        className="overflow-hidden pl-6 space-y-1"
+                      >
+                        {item.subItems.map((sub) => (
+                          <NavLink
+                            key={sub.name}
+                            to={sub.path}
+                            onClick={() => {
+                              if (window.innerWidth < 1024) onClose();
+                            }}
+                            className={({ isActive }) =>
+                              `flex items-center gap-3 px-5 py-2.5 rounded-[15px] transition-all duration-200 group relative ${isActive
+                                ? 'bg-white text-brand-red font-black scale-[1.02] shadow-md shadow-black/10'
+                                : 'hover:bg-white/5 hover:text-white font-bold text-white/60'
+                              }`
+                            }
+                          >
+                            {({ isActive }) => (
+                              <>
+                                <span className={`w-1.5 h-1.5 rounded-full transition-transform ${isActive ? 'bg-brand-red scale-125' : 'bg-white/30 group-hover:bg-white'}`} />
+                                <span className="text-[13px] tracking-tight">{sub.name}</span>
+                                {isActive && (
+                                  <motion.div
+                                    layoutId="activeSubIndicator"
+                                    className="absolute left-[-12px] w-1 h-5 bg-white rounded-r-full"
+                                  />
+                                )}
+                              </>
+                            )}
+                          </NavLink>
+                        ))}
+                      </motion.div>
+                    </div>
+                  );
+                }
 
-                      {!isActive && (
-                        <ChevronRight className="w-4 h-4 ml-auto opacity-0 -translate-x-2 group-hover:opacity-30 group-hover:translate-x-0 transition-all" />
-                      )}
-                    </>
-                  )}
-                </NavLink>
-              ))}
+                return (
+                  <NavLink
+                    key={item.name}
+                    to={item.path}
+                    onClick={() => {
+                      if (window.innerWidth < 1024) onClose();
+                    }}
+                    className={({ isActive }) =>
+                      `flex items-center gap-4 px-5 py-3.5 rounded-[20px] transition-all duration-300 group relative ${isActive
+                        ? 'bg-white text-brand-red shadow-2xl shadow-black/20 font-black scale-[1.02]'
+                        : 'hover:bg-white/10 hover:text-white font-bold'
+                      }`
+                    }
+                  >
+                    {({ isActive }) => (
+                      <>
+                        <item.icon className={`w-5.5 h-5.5 transition-transform group-hover:scale-110 ${isActive ? 'text-brand-red' : 'text-white/60 group-hover:text-white'}`} />
+                        <span className="text-[15px] tracking-tight">{item.name}</span>
+
+                        {item.badge && (
+                          <span className="ml-auto bg-brand-red text-white text-[8px] px-2 py-0.5 rounded-full font-black tracking-widest shadow-lg">
+                            {item.badge}
+                          </span>
+                        )}
+
+                        {isActive && (
+                          <motion.div
+                            layoutId="activeIndicator"
+                            className="absolute left-[-12px] w-1.5 h-8 bg-white rounded-r-full shadow-[2px_0_8px_rgba(255,255,255,0.5)]"
+                          />
+                        )}
+
+                        {!isActive && (
+                          <ChevronRight className="w-4 h-4 ml-auto opacity-0 -translate-x-2 group-hover:opacity-30 group-hover:translate-x-0 transition-all" />
+                        )}
+                      </>
+                    )}
+                  </NavLink>
+                );
+              })}
             </div>
           </div>
         ))}
