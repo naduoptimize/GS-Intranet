@@ -252,11 +252,6 @@ INSERT INTO subsidiaries (name, description, location, website, email, phone, em
 
 -- Seed Users (Password is 'admin123' for all)
 INSERT INTO users (full_name, email, password, role, subsidiary_id, department, job_title, employee_no, needs_password_change) VALUES
-('Janidu Perera', 'admin@gs.com', '$2b$10$U6bZ.kfTZnIoCICC28W7MOqyHo7IomCzO4jWYVrRn1DC.p5WepzUG', 'super_admin', 1, 'IT', 'Group CTO', 'EMP-001', 0),
-('Sarah Silva', 'subadmin@gs.com', '$2b$10$oB5aVYJbbX3OW1t81E/HceR4XXKJc5S7QObVYFEZ8xwY1r7WArZ2S', 'sub_admin', 2, 'HR', 'HR Manager', 'EMP-002', 0),
-('Dilshan Rodrigo', 'employee@gs.com', '$2b$10$sYtxTrv.8WoAgo65Gl/BY.srBpiUqiDa9qFaBSnG0gdYl/mkL.cnm', 'employee', 3, 'Operations', 'Project Lead', 'EMP-003', 0),
-('IT Admin User', 'itadmin@gs.com', '$2b$10$U6bZ.kfTZnIoCICC28W7MOqyHo7IomCzO4jWYVrRn1DC.p5WepzUG', 'it_admin', 1, 'IT', 'IT Systems Manager', 'EMP-IT_ADMIN', 0),
-('HR Admin User', 'hradmin@gs.com', '$2b$10$U6bZ.kfTZnIoCICC28W7MOqyHo7IomCzO4jWYVrRn1DC.p5WepzUG', 'hr_admin', 1, 'HR', 'HR Operations Manager', 'EMP-HR_ADMIN', 0),
-('IT Support Specialist', 'itstaff@gs.com', '$2b$10$U6bZ.kfTZnIoCICC28W7MOqyHo7IomCzO4jWYVrRn1DC.p5WepzUG', 'it_staff', 1, 'IT', 'IT Support Engineer', 'EMP-IT_STAFF', 0),
-('HR Support Specialist', 'hrstaff@gs.com', '$2b$10$U6bZ.kfTZnIoCICC28W7MOqyHo7IomCzO4jWYVrRn1DC.p5WepzUG', 'hr_staff', 1, 'HR', 'HR Assistant', 'EMP-HR_STAFF', 0);
+('Lakshan', 'lakshan@gsoptimize.lk', '$2b$10$Fqqgloc3KYs.LMbmo87Gnu3iKCwMpFC4MVazfcsroimjOg9pi54ou', 'super_admin', 2, 'IT', 'Group CTO', 'EMP-001', 0),
+('Nadumi', 'nadumi@gsoptimize.lk', '$2b$10$Fqqgloc3KYs.LMbmo87Gnu3iKCwMpFC4MVazfcsroimjOg9pi54ou', 'super_admin', 2, 'IT', 'Group CEO', 'EMP-002', 0);
 
