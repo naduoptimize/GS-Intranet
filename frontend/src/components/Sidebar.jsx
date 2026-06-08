@@ -30,7 +30,7 @@ const Sidebar = ({ onClose }) => {
   const { user } = useAuth();
   const location = useLocation();
 
-  const isDirectoryActive = location.pathname.startsWith('/directory') || location.pathname.startsWith('/365-directory');
+  const isDirectoryActive = location.pathname.startsWith('/directory') || location.pathname.startsWith('/365-directory') || location.pathname.startsWith('/manual-directory');
   const [isDirectoryOpen, setIsDirectoryOpen] = useState(isDirectoryActive);
 
   useEffect(() => {
@@ -74,7 +74,8 @@ const Sidebar = ({ onClose }) => {
           icon: Users,
           subItems: [
             { name: 'All Employees', path: '/directory' },
-            { name: '365 Employees', path: '/365-directory' }
+            { name: '365 Employees', path: '/365-directory' },
+            { name: 'Manual Employees', path: '/manual-directory' }
           ]
         },
         { name: 'Direct Messages', icon: MessageSquare, path: '/messages' },

@@ -127,6 +127,24 @@ function normalizeCompany(dept) {
     return cleaned.toUpperCase();
 }
 
+// Get Manually Added Users from local database
+router.get('/manual', async (req, res) => {
+    try {
+        const query = `
+            SELECT u.id, u.full_name, u.email, u.role, u.department, u.job_title, u.phone, u.profile_pic, u.bio, u.subsidiary_id, s.name as subsidiary_name 
+            FROM users u 
+            LEFT JOIN subsidiaries s ON u.subsidiary_id = s.id 
+            WHERE u.is_active = TRUE AND (u.is_synced = FALSE OR u.is_synced IS NULL)
+            ORDER BY u.full_name ASC
+        `;
+        const [rows] = await db.execute(query);
+        res.json(rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error fetching manually added directory from database' });
+    }
+});
+
 // Get Microsoft Office 365 Users from local database
 router.get('/office365', async (req, res) => {
     try {

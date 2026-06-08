@@ -185,90 +185,108 @@ router.post('/register-super-admin', async (req, res) => {
     }
 });
 
-// Microsoft 365 OAuth Login Redirect Route
-router.get('/microsoft', (req, res) => {
-    const clientId = process.env.AZURE_CLIENT_ID;
-    const tenantId = process.env.AZURE_TENANT_ID;
-    const redirectUri = process.env.AZURE_REDIRECT_URI || 'http://localhost:5000/api/auth/microsoft/callback';
-    
-    if (!clientId || !tenantId) {
-        console.error('SSO configuration missing. Tenant ID or Client ID not found in .env.');
-        return res.status(500).json({ message: 'Microsoft Graph API configuration is missing.' });
-    }
-    
-    const authUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&response_mode=query&scope=openid%20profile%20email%20User.Read`;
-    res.redirect(authUrl);
-});
-
 // Microsoft 365 OAuth Callback Route
 router.get('/microsoft/callback', async (req, res) => {
-    const { code, error } = req.query;
-    
-    if (error) {
-        console.error('Microsoft OAuth error returned to callback:', error);
-        return res.redirect('http://localhost:5173/login?error=auth_failed');
-    }
+    const { code } = req.query;
     
     if (!code) {
-        return res.redirect('http://localhost:5173/login?error=no_code');
+        return res.redirect('http://localhost:5173/login?error=' + encodeURIComponent('Authorization code is missing.'));
     }
     
-    const clientId = process.env.AZURE_CLIENT_ID;
-    const tenantId = process.env.AZURE_TENANT_ID;
-    const clientSecret = process.env.AZURE_CLIENT_SECRET;
-    const redirectUri = process.env.AZURE_REDIRECT_URI || 'http://localhost:5000/api/auth/microsoft/callback';
-    
     try {
+        const clientId = process.env.AZURE_CLIENT_ID;
+        const tenantId = process.env.AZURE_TENANT_ID;
+        const clientSecret = process.env.AZURE_CLIENT_SECRET;
+        
+        if (!clientId || !tenantId || !clientSecret) {
+            return res.redirect('http://localhost:5173/login?error=' + encodeURIComponent('Microsoft configuration is missing on server.'));
+        }
+        
+        const redirectUri = 'http://localhost:5000/api/auth/microsoft/callback';
+        
         // Exchange code for Access Token
         const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
-        const params = new URLSearchParams();
-        params.append('client_id', clientId);
-        params.append('scope', 'openid profile email User.Read');
-        params.append('code', code);
-        params.append('redirect_uri', redirectUri);
-        params.append('grant_type', 'authorization_code');
-        params.append('client_secret', clientSecret);
+        const tokenParams = new URLSearchParams();
+        tokenParams.append('client_id', clientId);
+        tokenParams.append('scope', 'https://graph.microsoft.com/.default');
+        tokenParams.append('client_secret', clientSecret);
+        tokenParams.append('grant_type', 'authorization_code');
+        tokenParams.append('code', code);
+        tokenParams.append('redirect_uri', redirectUri);
         
-        const tokenRes = await axios.post(tokenUrl, params.toString(), {
+        console.log('Exchanging auth code for MS token (callback)...');
+        const tokenRes = await axios.post(tokenUrl, tokenParams.toString(), {
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
         });
         
         const accessToken = tokenRes.data.access_token;
-        if (!accessToken) throw new Error('Token exchange failed.');
         
-        // Fetch user profile from Microsoft Graph
+        // Fetch User profile from Microsoft Graph
+        console.log('Querying Graph API User Profile (callback)...');
         const profileRes = await axios.get('https://graph.microsoft.com/v1.0/me', {
-            headers: { Authorization: `Bearer ${accessToken}` }
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Accept': 'application/json'
+            }
         });
         
-        const email = (profileRes.data.mail || profileRes.data.userPrincipalName || '').toLowerCase().trim();
+        const me = profileRes.data;
+        const email = (me.mail || me.userPrincipalName || '').trim().toLowerCase();
         
         if (!email) {
-            return res.redirect('http://localhost:5173/login?error=no_email');
+            return res.redirect('http://localhost:5173/login?error=' + encodeURIComponent('Could not retrieve email from Microsoft profile.'));
         }
         
-        // Check if user exists and is active in local database
-        const [rows] = await db.execute(`
-            SELECT u.*, s.name as subsidiary_name 
-            FROM users u 
-            LEFT JOIN subsidiaries s ON u.subsidiary_id = s.id 
-            WHERE u.email = ? AND u.is_active = TRUE
-        `, [email]);
+        // Check if user exists in the database
+        const [rows] = await db.execute(
+            'SELECT u.*, s.name as subsidiary_name FROM users u LEFT JOIN subsidiaries s ON u.subsidiary_id = s.id WHERE u.email = ?',
+            [email]
+        );
         
+        let user;
         if (rows.length === 0) {
-            return res.redirect('http://localhost:5173/login?error=not_registered');
+            // User does not exist, let's create a new active user
+            console.log(`Microsoft login: Creating new user for ${email}...`);
+            const randomPassword = require('crypto').randomBytes(16).toString('hex');
+            const hashedPassword = await bcrypt.hash(randomPassword, 10);
+            const fullName = me.displayName || email.split('@')[0];
+            
+            const [insertResult] = await db.execute(
+                `INSERT INTO users 
+                 (full_name, email, password, role, is_active, is_synced, ignore_sync, needs_password_change) 
+                 VALUES (?, ?, ?, 'employee', TRUE, TRUE, FALSE, FALSE)`,
+                [fullName, email, hashedPassword]
+            );
+            
+            const [newRows] = await db.execute(
+                'SELECT u.*, s.name as subsidiary_name FROM users u LEFT JOIN subsidiaries s ON u.subsidiary_id = s.id WHERE u.id = ?',
+                [insertResult.insertId]
+            );
+            user = newRows[0];
+        } else {
+            user = rows[0];
+            
+            // If the user's account is deactivated, reject
+            if (!user.is_active) {
+                return res.redirect('http://localhost:5173/login?error=' + encodeURIComponent('Your account has been deactivated. Please contact your administrator.'));
+            }
+            
+            // For Microsoft authenticated users, we bypass password change
+            if (user.needs_password_change) {
+                await db.execute('UPDATE users SET needs_password_change = FALSE WHERE id = ?', [user.id]);
+                user.needs_password_change = 0;
+            }
         }
         
-        const user = rows[0];
-        
-        // Generate JWT Token
+        // Sign local JWT token
         const token = jwt.sign(
             { id: user.id, role: user.role, subsidiary_id: user.subsidiary_id, department: user.department },
             process.env.JWT_SECRET,
             { expiresIn: '24h' }
         );
         
-        const userData = {
+        console.log(`Microsoft login successful for ${email}. Redirecting to frontend...`);
+        const userObj = {
             id: user.id,
             full_name: user.full_name,
             email: user.email,
@@ -277,15 +295,15 @@ router.get('/microsoft/callback', async (req, res) => {
             subsidiary_id: user.subsidiary_id,
             subsidiary_name: user.subsidiary_name,
             profile_pic: user.profile_pic,
-            needs_password_change: user.needs_password_change
+            needs_password_change: false
         };
         
-        // Redirect back to frontend login with token and user details
-        return res.redirect(`http://localhost:5173/login?token=${token}&user=${encodeURIComponent(JSON.stringify(userData))}`);
+        return res.redirect(`http://localhost:5173/login?token=${token}&user=${encodeURIComponent(JSON.stringify(userObj))}`);
         
     } catch (err) {
-        console.error('Microsoft Authentication Error:', err.message);
-        return res.redirect('http://localhost:5173/login?error=server_error');
+        console.error('Microsoft Login Callback Error:', err.response?.data || err.message);
+        const errMsg = err.response?.data?.error_description || err.message || 'Microsoft authentication failed.';
+        return res.redirect('http://localhost:5173/login?error=' + encodeURIComponent(errMsg));
     }
 });
 

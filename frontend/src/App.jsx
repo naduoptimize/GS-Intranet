@@ -9,6 +9,7 @@ import DocumentCenter from './pages/DocumentCenter';
 import AdminDocuments from './pages/AdminDocuments';
 import EmployeeDirectory from './pages/EmployeeDirectory';
 import ComingSoon365 from './pages/ComingSoon365';
+import ManualDirectory from './pages/ManualDirectory';
 import AdminAnalytics from './pages/AdminAnalytics';
 import AdminDirectory from './pages/AdminDirectory';
 import LoginPage from './pages/LoginPage';
@@ -118,6 +119,7 @@ function App() {
             <Route path="documents" element={<DocumentCenter />} />
             <Route path="directory" element={<EmployeeDirectory />} />
             <Route path="365-directory" element={<ComingSoon365 />} />
+            <Route path="manual-directory" element={<ManualDirectory />} />
             <Route path="calendar" element={<HolidayCalendar />} />
             <Route path="help" element={<HelpDesk />} />
             <Route path="settings" element={<Settings />} />

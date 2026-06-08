@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, Search, Plus, Edit2, Trash2, Key, X, Check,
-  ChevronDown, Building2, Shield, UserCheck, AlertTriangle, RefreshCw
+  ChevronDown, Building2, Shield, UserCheck, AlertTriangle, RefreshCw,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -141,6 +142,22 @@ export default function AdminDirectory() {
     return matchSearch && matchRole && matchSub;
   });
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, filterRole, filterSub]);
+
+  const totalPages = useMemo(() => {
+    return Math.ceil(filtered.length / itemsPerPage);
+  }, [filtered.length]);
+
+  const paginated = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filtered.slice(start, start + itemsPerPage);
+  }, [filtered, currentPage]);
+
   const subNames = [...new Set(employees.map(e => e.subsidiary_name).filter(Boolean))];
 
   // ── HANDLERS ──────────────────────────────────────────
@@ -209,13 +226,9 @@ export default function AdminDirectory() {
 
   const stats = [
     { label: 'Total Employees', value: employees.length, color: '#6366f1', gradient: 'from-indigo-500 to-blue-600' },
-    isSubAdmin 
-      ? { label: 'Standard Employees', value: employees.filter(e => e.role === 'employee').length, color: '#3b82f6', gradient: 'from-blue-500 to-sky-600' }
-      : { label: 'Super Admins', value: employees.filter(e => e.role === 'super_admin').length, color: '#C8102E', gradient: 'from-red-500 to-rose-600' },
-    { label: 'Sub Admins', value: employees.filter(e => e.role === 'sub_admin').length, color: '#f59e0b', gradient: 'from-amber-500 to-yellow-600' },
-    isSubAdmin
-      ? { label: 'My Subsidiary', value: currentUser?.subsidiary_name || 'Assigned', color: '#10b981', gradient: 'from-emerald-500 to-teal-600' }
-      : { label: 'Subsidiaries', value: subNames.length, color: '#10b981', gradient: 'from-emerald-500 to-teal-600' }
+    { label: '365 Employees', value: employees.filter(e => e.is_synced === 1 || e.is_synced === true).length, color: '#0078d4', gradient: 'from-blue-500 to-sky-600' },
+    { label: 'Manual Employees', value: employees.filter(e => !e.is_synced).length, color: '#f59e0b', gradient: 'from-amber-500 to-yellow-650' },
+    { label: 'Super & Sub Admins', value: employees.filter(e => e.role === 'super_admin' || e.role === 'sub_admin').length, color: '#C8102E', gradient: 'from-red-500 to-rose-600' }
   ];
 
   return (
@@ -352,7 +365,7 @@ export default function AdminDirectory() {
                   <tr><td colSpan={6} className="text-center py-16 text-slate-400 dark:text-slate-500 text-sm font-medium animate-pulse">Loading employees…</td></tr>
                 ) : filtered.length === 0 ? (
                   <tr><td colSpan={6} className="text-center py-16 text-slate-400 dark:text-slate-500 text-sm font-medium">No employees found</td></tr>
-                ) : filtered.map((emp, i) => (
+                ) : paginated.map((emp, i) => (
                   <motion.tr key={emp.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }}
                     className="hover:bg-slate-50/60 dark:hover:bg-white/5 transition-colors group">
                     <td className="px-6 py-5">
@@ -423,7 +436,7 @@ export default function AdminDirectory() {
             ) : filtered.length === 0 ? (
               <div className="text-center py-16 text-slate-400 dark:text-slate-500 text-sm font-medium">No employees found</div>
             ) : (
-              filtered.map((emp) => (
+              paginated.map((emp) => (
                 <div key={emp.id} className="bg-white dark:bg-[#131B2E] border border-slate-100 dark:border-white/5 rounded-2xl p-5 shadow-sm space-y-4">
                   <div className="flex gap-4 items-center">
                     <div className="w-12 h-12 rounded-2xl overflow-hidden shrink-0 shadow-sm border border-slate-100 dark:border-white/10">
@@ -479,6 +492,34 @@ export default function AdminDirectory() {
               ))
             )}
           </div>
+
+          {/* PAGINATION CONTROLS */}
+          {totalPages > 1 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-5 border-t border-slate-100 dark:border-white/5 bg-slate-50/20 dark:bg-white/5">
+              <div className="text-xs font-bold text-slate-450 dark:text-slate-500 uppercase tracking-widest">
+                Showing {Math.min(filtered.length, (currentPage - 1) * itemsPerPage + 1)}-{Math.min(filtered.length, currentPage * itemsPerPage)} of {filtered.length} employees
+              </div>
+              <div className="flex items-center gap-3">
+                <button 
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  className="p-2.5 bg-white dark:bg-white/5 border border-slate-100 dark:border-white/10 text-slate-500 dark:text-slate-400 rounded-xl hover:bg-slate-50 dark:hover:bg-white/10 disabled:opacity-50 transition-all cursor-pointer shadow-sm disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-[10px] font-black text-slate-450 dark:text-slate-500 uppercase tracking-widest">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button 
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  className="p-2.5 bg-white dark:bg-white/5 border border-slate-100 dark:border-white/10 text-slate-500 dark:text-slate-400 rounded-xl hover:bg-slate-50 dark:hover:bg-white/10 disabled:opacity-50 transition-all cursor-pointer shadow-sm disabled:cursor-not-allowed"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
 
         </div>
       </div>

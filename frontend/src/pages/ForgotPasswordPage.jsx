@@ -89,8 +89,8 @@ const ForgotPasswordPage = () => {
             
             {/* Header / Logo */}
             <div className="flex flex-col items-center mb-8">
-              <div className="w-16 h-16 bg-white rounded-[20px] flex items-center justify-center shadow-xl p-3 mb-4 border border-slate-100">
-                <img src="/api_logo.png" alt="George Steuart" className="w-full h-full object-contain" />
+              <div className="w-16 h-16 bg-brand-red rounded-[20px] flex items-center justify-center shadow-xl p-3 mb-4">
+                <img src="/api_logo.png" alt="API" className="w-full h-full object-contain brightness-0 invert" />
               </div>
               <h1 className="text-2xl font-black text-slate-900 tracking-tight mb-1">
                 {step === 1 && 'Reset Password'}

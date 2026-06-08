@@ -1,88 +1,92 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useLocation, useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { Lock, User, ArrowRight, Eye, EyeOff, Globe, Zap, Users, Check } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { AlertTriangle, Loader2 } from 'lucide-react';
 
 const LoginPage = () => {
-  const [error, setError] = useState(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [authStatusMessage, setAuthStatusMessage] = useState('');
   const navigate = useNavigate();
-  const location = useLocation();
   const { login } = useAuth();
 
+  // Microsoft OAuth authorize URL construction and redirect
+  const handleMicrosoftLogin = () => {
+    const clientId = '5e0cce25-8863-4546-b82c-7746f232378a';
+    const tenantId = 'e146d540-8607-402e-a38e-441e00d4ec27';
+    const redirectUri = 'http://localhost:5000/api/auth/microsoft/callback'; // matches the configured redirect URI in Azure AD
+    const scope = encodeURIComponent('openid profile email User.Read');
+    const state = 'microsoft-auth-flow';
+    
+    const authUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&response_mode=query&scope=${scope}&state=${state}`;
+    
+    window.location.href = authUrl;
+  };
+
+  // Check for OAuth credentials in query params on mount
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const token = params.get('token');
-    const userJson = params.get('user');
-    const errParam = params.get('error');
-
-    if (errParam === 'not_registered') {
-      setError('Your Microsoft account is not registered on this system. Please contact your IT administrator.');
-    } else if (errParam === 'auth_failed') {
-      setError('Microsoft authentication failed. Please try again.');
-    } else if (errParam === 'no_email') {
-      setError('Unable to retrieve email from your Microsoft profile.');
-    } else if (errParam === 'server_error') {
-      setError('An internal server error occurred during authentication.');
-    } else if (errParam) {
-      setError('Authentication failed. Please check your credentials and try again.');
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    const userJson = urlParams.get('user');
+    const error = urlParams.get('error');
+    
+    if (error) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+      alert(decodeURIComponent(error));
     }
-
+    
     if (token && userJson) {
-      setIsLoading(true);
+      window.history.replaceState({}, document.title, window.location.pathname);
       try {
-        const parsedUser = JSON.parse(decodeURIComponent(userJson));
+        const userObj = JSON.parse(decodeURIComponent(userJson));
         localStorage.setItem('gs_token', token);
-        login(parsedUser);
-        
-        // Handle password change requirement or redirect
-        if (parsedUser.needs_password_change) {
-          navigate('/force-password-change');
-        } else {
-          navigate('/');
-        }
-      } catch (e) {
-        console.error('Failed to parse user details from callback', e);
-        setError('Login failed during authentication callback.');
-      } finally {
-        setIsLoading(false);
+        login(userObj);
+        navigate('/');
+      } catch (err) {
+        console.error('Failed to parse user details:', err);
+        alert('Authentication failed to parse user payload.');
       }
     }
-  }, [location, login, navigate]);
+  }, []);
 
-  const handleMicrosoftSignIn = () => {
+  const handleLogin = async (e) => {
+    e.preventDefault();
     setIsLoading(true);
-    setError(null);
-    window.location.href = 'http://localhost:5000/api/auth/microsoft';
+    try {
+      const response = await axios.post('http://localhost:5000/api/auth/login', {
+        email,
+        password
+      });
+      
+      const { user, token } = response.data;
+      localStorage.setItem('gs_token', token);
+      login(user);
+      
+      // Handle password change requirement
+      if (user.needs_password_change) {
+        navigate('/force-password-change');
+      } else {
+        navigate('/');
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Login failed');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-[#F3F4F6] flex items-center justify-center p-0 lg:p-6 font-sans relative overflow-hidden">
-      
-      {/* Background Animated Waves - Top */}
-      <div className="absolute top-0 left-0 w-full rotate-180 z-0 select-none pointer-events-none opacity-40">
-        <svg className="w-full h-[120px] min-h-[90px]" viewBox="0 0 1200 120" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M0,60 C150,100 350,20 500,60 C650,100 850,20 1000,60 C1150,100 1300,60 1400,60 L1400,120 L0,120 Z" fill="rgba(200, 16, 46, 0.05)" className="wave-layer-1" />
-          <path d="M0,60 C200,30 400,90 600,40 C800,90 1000,30 1200,60 L1200,120 L0,120 Z" fill="rgba(245, 158, 11, 0.02)" className="wave-layer-2" />
-          <path d="M0,80 C150,50 350,110 500,80 C650,50 850,110 1000,80 C1150,50 1300,80 1400,80 L1400,120 L0,120 Z" fill="rgba(200, 16, 46, 0.02)" className="wave-layer-3" />
-        </svg>
-      </div>
-
-      {/* Background Animated Waves - Bottom */}
-      <div className="absolute bottom-0 left-0 w-full z-0 select-none pointer-events-none opacity-40">
-        <svg className="w-full h-[120px] min-h-[90px]" viewBox="0 0 1200 120" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M0,60 C150,100 350,20 500,60 C650,100 850,20 1000,60 C1150,100 1300,60 1400,60 L1400,120 L0,120 Z" fill="rgba(200, 16, 46, 0.05)" className="wave-layer-1" />
-          <path d="M0,60 C200,30 400,90 600,40 C800,90 1000,30 1200,60 L1200,120 L0,120 Z" fill="rgba(245, 158, 11, 0.02)" className="wave-layer-2" />
-          <path d="M0,80 C150,50 350,110 500,80 C650,50 850,110 1000,80 C1150,50 1300,80 1400,80 L1400,120 L0,120 Z" fill="rgba(200, 16, 46, 0.02)" className="wave-layer-3" />
-        </svg>
-      </div>
+    <div className="min-h-screen bg-[#F3F4F6] flex items-center justify-center p-0 lg:p-6 font-sans">
       
       {/* Main Container */}
-      <div className="w-full h-full lg:h-auto lg:max-w-[1000px] bg-white lg:rounded-[40px] shadow-2xl flex flex-col lg:flex-row overflow-hidden relative z-10">
+      <div className="w-full h-full lg:h-auto lg:max-w-[1200px] bg-white lg:rounded-[40px] shadow-2xl flex flex-col lg:flex-row overflow-hidden">
         
         {/* Left Side: Dynamic Branding Panel */}
-        <div className="hidden lg:block lg:w-1/2 relative overflow-hidden bg-brand-red min-h-[500px]">
+        <div className="hidden lg:block lg:w-1/2 relative overflow-hidden bg-brand-red">
           <img 
             src="/login page.png" 
             alt="GS Branding" 
@@ -90,60 +94,112 @@ const LoginPage = () => {
           />
         </div>
 
-        {/* Right Side: Authentication Panel */}
+        {/* Right Side: Authentication Form */}
         <div className="flex-1 bg-white p-8 md:p-16 flex flex-col justify-center">
-          <div className="max-w-[360px] mx-auto w-full">
+          <div className="max-w-[400px] mx-auto w-full">
             
             {/* Header / Logo */}
             <div className="flex flex-col items-center mb-10">
-              <div className="w-20 h-20 bg-white rounded-[24px] flex items-center justify-center shadow-xl p-3 mb-6 border border-slate-100">
-                <img src="/api_logo.png" alt="George Steuart" className="w-full h-full object-contain" />
+              <div className="w-20 h-20 bg-brand-red rounded-[24px] flex items-center justify-center shadow-xl p-4 mb-6">
+                <img src="/api_logo.png" alt="API" className="w-full h-full object-contain brightness-0 invert" />
               </div>
               <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Sign in</h1>
-              <p className="text-slate-400 font-medium text-sm text-center">Use your George Steuart corporate account</p>
+              {authStatusMessage ? (
+                <p className="text-brand-red font-bold text-sm animate-pulse">{authStatusMessage}</p>
+              ) : (
+                <p className="text-slate-400 font-medium text-sm">Enter your credentials to access your account</p>
+              )}
             </div>
 
-            {/* Error Message */}
-            {error && (
-              <motion.div 
-                initial={{ opacity: 0, y: -10 }} 
-                animate={{ opacity: 1, y: 0 }}
-                className="flex items-start gap-3 p-4 mb-6 bg-red-50 text-red-800 rounded-xl border border-red-100 text-xs font-semibold leading-relaxed"
-              >
-                <AlertTriangle className="w-4 h-4 shrink-0 text-red-500 mt-0.5" />
-                <span>{error}</span>
-              </motion.div>
-            )}
+            <form onSubmit={handleLogin} className="space-y-6">
+              {/* Email Field */}
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-700 ml-1">Email address</label>
+                <div className="relative group">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-red transition-colors">
+                    <User className="w-5 h-5" />
+                  </div>
+                  <input 
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Enter your email"
+                    className="w-full pl-12 pr-4 py-3.5 bg-white border border-slate-200 rounded-xl focus:border-brand-red focus:ring-4 focus:ring-brand-red/5 outline-none transition-all text-slate-700 font-medium"
+                  />
+                </div>
+              </div>
 
-            {/* Microsoft SSO Action Button */}
+              {/* Password Field */}
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-700 ml-1">Password</label>
+                <div className="relative group">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-red transition-colors">
+                    <Lock className="w-5 h-5" />
+                  </div>
+                  <input 
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter your password"
+                    className="w-full pl-12 pr-12 py-3.5 bg-white border border-slate-200 rounded-xl focus:border-brand-red focus:ring-4 focus:ring-brand-red/5 outline-none transition-all text-slate-700 font-medium"
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Remember & Forgot */}
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 cursor-pointer group">
+                   <div className="relative w-5 h-5">
+                      <input type="checkbox" className="peer absolute inset-0 opacity-0 cursor-pointer z-10" />
+                      <div className="w-5 h-5 border-2 border-slate-200 rounded group-hover:border-brand-red peer-checked:bg-brand-red peer-checked:border-brand-red transition-all"></div>
+                      <Check className="absolute inset-0 m-auto w-3 h-3 text-white opacity-0 peer-checked:opacity-100 transition-opacity" />
+                   </div>
+                   <span className="text-sm font-bold text-slate-500 transition-colors">Remember me</span>
+                </label>
+                <Link to="/forgot-password" className="text-sm font-black text-brand-red hover:underline">Forgot password?</Link>
+              </div>
+
+              {/* Submit Button */}
+              <button 
+                type="submit"
+                disabled={isLoading}
+                className="w-full bg-brand-red text-white py-4 rounded-xl font-bold tracking-tight shadow-lg shadow-brand-red/20 hover:bg-brand-red-dark active:scale-[0.98] transition-all flex items-center justify-center gap-2 mt-2 disabled:opacity-70"
+              >
+                {isLoading ? 'Signing in...' : 'Sign in'}
+              </button>
+            </form>
+
+            {/* Divider */}
+            <div className="relative my-10">
+              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100"></div></div>
+              <div className="relative flex justify-center text-xs"><span className="px-4 bg-white text-slate-400 font-medium">or continue with</span></div>
+            </div>
+
+            {/* Social Logins */}
             <div className="flex flex-col gap-4">
               <button 
-                onClick={handleMicrosoftSignIn}
+                type="button"
+                onClick={handleMicrosoftLogin}
                 disabled={isLoading}
-                className="w-full flex items-center justify-center gap-3 py-4 border border-slate-200 hover:border-brand-red/30 rounded-xl font-bold text-slate-700 bg-white hover:bg-slate-50 hover:shadow-sm active:scale-[0.98] transition-all group disabled:opacity-60 cursor-pointer sso-button-shimmer"
+                className="w-full flex items-center justify-center gap-3 py-3 border border-slate-200 rounded-xl font-bold text-slate-700 hover:bg-slate-50 transition-all group disabled:opacity-50"
               >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin text-brand-red" />
-                    <span>Signing in...</span>
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-5 h-5 group-hover:scale-110 transition-transform shrink-0" viewBox="0 0 23 23" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M0 0H11V11H0V0Z" fill="#F25022"/>
-                      <path d="M12 0H23V11H12V0Z" fill="#7FBA00"/>
-                      <path d="M0 12H11V23H0V12Z" fill="#01A6F0"/>
-                      <path d="M12 12H23V23H12V12Z" fill="#FFB900"/>
-                    </svg>
-                    <span>Sign in with Microsoft</span>
-                  </>
-                )}
+                <img src="https://www.svgrepo.com/show/303416/microsoft-icon.svg" alt="Microsoft" className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                {isLoading && authStatusMessage ? 'Connecting...' : 'Sign in with Microsoft'}
               </button>
             </div>
 
-            {/* Single Sign-On Info */}
-            <p className="mt-8 text-center text-slate-400 font-semibold text-[10px] uppercase tracking-wider leading-relaxed">
-              Secure single sign-on powered by Microsoft Azure Active Directory
+            {/* Sign up Link */}
+            <p className="mt-10 text-center text-slate-500 font-bold text-sm">
+              Don't have an account? <Link to="/register" className="text-brand-red hover:underline ml-1">Sign up</Link>
             </p>
           </div>
         </div>
