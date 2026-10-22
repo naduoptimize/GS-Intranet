@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import AdminPageHeader from '../components/AdminPageHeader';
 import { 
   Users, Search, UserPlus, Trash2, Edit2, X, Save, Check, AlertCircle, 
   RefreshCw, KeyRound, Shield, Building2, MessageSquare, Calendar, Phone, 
@@ -28,20 +29,25 @@ const getInitialForm = (isSub, userSubId) => ({
   subsidiary_id: isSub ? userSubId : '' 
 });
 
+const formatRoleLabel = (r) => {
+  if (r === 'superadmin' || r === 'super_admin') return 'Super Admin';
+  if (r === 'groupadmin' || r === 'group_admin') return 'Group Admin';
+  if (r === 'subadmin' || r === 'sub_admin') return 'Sub Admin';
+  return 'Employee';
+};
+
 const roleStyle = (r) => {
-  if (r === 'super_admin') return 'bg-red-50 dark:bg-red-950/30 text-brand-red dark:text-red-400 border-red-100 dark:border-red-900/30';
-  if (r === 'it_admin') return 'bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 border-blue-100 dark:border-blue-900/30';
-  if (r === 'hr_admin') return 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 border-rose-100 dark:border-rose-900/30';
-  if (r === 'sub_admin') return 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border-amber-100 dark:border-amber-900/30';
-  if (r === 'it_staff') return 'bg-cyan-50 dark:bg-cyan-950/30 text-cyan-700 dark:text-cyan-400 border-cyan-100 dark:border-cyan-900/30';
-  if (r === 'hr_staff') return 'bg-pink-50 dark:bg-pink-950/30 text-pink-700 dark:text-pink-400 border-pink-100 dark:border-pink-900/30';
+  if (r === 'superadmin' || r === 'super_admin') return 'bg-red-50 dark:bg-red-950/30 text-brand-red dark:text-red-400 border-red-100 dark:border-red-900/30';
+  if (r === 'groupadmin' || r === 'group_admin') return 'bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-400 border-purple-100 dark:border-purple-900/30';
+  if (r === 'subadmin' || r === 'sub_admin') return 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border-amber-100 dark:border-amber-900/30';
   return 'bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-100 dark:border-slate-800';
 };
 
 export default function AdminManagement() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const isSub = user?.role !== 'super_admin';
+  const isSuperOrGroupAdmin = user?.role === 'superadmin' || user?.role === 'super_admin' || user?.role === 'groupadmin' || user?.role === 'group_admin';
+  const isSub = !isSuperOrGroupAdmin;
 
   const [employees, setEmployees] = useState([]);
   const [subsidiaries, setSubsidiaries] = useState([]);
@@ -118,7 +124,11 @@ export default function AdminManagement() {
     e.preventDefault(); 
     setSubmitting(true);
     try {
-      await axios.post(`${API}/users`, form);
+      await axios.post(`${API}/users`, {
+        ...form,
+        creator_role: user?.role,
+        creator_subsidiary_id: user?.subsidiary_id
+      });
       showToast('Employee registered successfully ✓');
       setAddModal(false); 
       setForm(getInitialForm(isSub, user?.subsidiary_id)); 
@@ -151,7 +161,11 @@ export default function AdminManagement() {
     e.preventDefault(); 
     setSubmitting(true);
     try {
-      await axios.put(`${API}/users/${editTarget.id}`, editForm);
+      await axios.put(`${API}/users/${editTarget.id}`, {
+        ...editForm,
+        modifier_role: user?.role,
+        modifier_subsidiary_id: user?.subsidiary_id
+      });
       showToast('Employee details updated ✓');
       
       // Keep Drawer detail card in sync with updated form state
@@ -176,7 +190,12 @@ export default function AdminManagement() {
 
   async function handleDelete() {
     try {
-      await axios.delete(`${API}/users/${deleteId}`);
+      await axios.delete(`${API}/users/${deleteId}`, {
+        params: {
+          role: user?.role,
+          subsidiary_id: user?.subsidiary_id
+        }
+      });
       showToast('Employee deactivated successfully');
       if (selectedEmployee?.id === deleteId) {
         setSelectedEmployee(null);
@@ -210,7 +229,11 @@ export default function AdminManagement() {
       e.employee_no?.toLowerCase().includes(search.toLowerCase()) ||
       e.job_title?.toLowerCase().includes(search.toLowerCase());
       
-    const matchRole = roleFilter === 'all' ? true : e.role === roleFilter;
+    const matchRole = roleFilter === 'all' ? true : 
+      (roleFilter === 'subadmin' ? (e.role === 'subadmin' || e.role === 'sub_admin') :
+       roleFilter === 'groupadmin' ? (e.role === 'groupadmin' || e.role === 'group_admin') :
+       roleFilter === 'superadmin' ? (e.role === 'superadmin' || e.role === 'super_admin') :
+       roleFilter === 'employee' ? (e.role === 'employee' || !e.role) : e.role === roleFilter);
     const matchSub  = !subFilter || String(e.subsidiary_id) === subFilter || e.subsidiary_name === subFilter;
     const matchDept = deptFilter === 'all' ? true : e.department === deptFilter;
     
@@ -241,39 +264,16 @@ export default function AdminManagement() {
         )}
       </AnimatePresence>
 
-      {/* HERO BANNER SECTION */}
-      <div className="px-4 sm:px-8 pt-4 sm:pt-8">
-        <div className="relative h-[220px] sm:h-[300px] md:h-[320px] w-full overflow-hidden rounded-[24px] sm:rounded-[36px] shadow-xl group border border-slate-100 dark:border-white/5">
-          <img 
-            src="/admin_premium_cover.png" 
-            alt="Management Banner" 
-            className="w-full h-full object-cover transition-transform duration-[1200ms] group-hover:scale-103"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-900/60 to-transparent"/>
-          <div className="absolute inset-0 flex items-center px-6 sm:px-12 md:px-16">
-            <motion.div 
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6 }}
-              className="max-w-2xl"
-            >
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-brand-red/20 backdrop-blur-md border border-brand-red/30 rounded-full mb-3">
-                <Sparkles className="w-3.5 h-3.5 text-brand-red animate-pulse"/>
-                <span className="text-[9px] font-black text-brand-red uppercase tracking-[3px]">Intranet Operations</span>
-              </div>
-              <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter leading-none mb-3">
-                Employee <span className="text-brand-red">Control Center</span>
-              </h1>
-              <p className="text-white/60 text-xs sm:text-sm font-medium leading-relaxed max-w-lg hidden sm:block">
-                Orchestrate administrative controls, manage directory attributes, and secure credentials across George Steuart subsidiaries and organizational departments.
-              </p>
-            </motion.div>
-          </div>
-        </div>
+      <div className="mb-6">
+        <AdminPageHeader
+          icon={Shield}
+          title="Employee Control Center"
+          description="Orchestrate administrative controls, directory attributes, credentials, subsidiaries, and organizational departments."
+        />
       </div>
 
       {/* MAIN CONTAINER */}
-      <div className="px-4 sm:px-8 md:px-10 -mt-10 sm:-mt-14 relative z-10">
+      <div className="mt-6">
 
         {/* STATS WIDGETS */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 mb-8">
@@ -397,12 +397,11 @@ export default function AdminManagement() {
                 {[
                   {val:'all',label:'All Scopes'},
                   {val:'employee',label:'Employee'},
-                  {val:'sub_admin',label:'Sub Admin'},
-                  {val:'it_admin',label:'IT Admin'},
-                  {val:'hr_admin',label:'HR Admin'},
-                  {val:'it_staff',label:'IT Staff'},
-                  {val:'hr_staff',label:'HR Staff'},
-                  ...(!isSub ? [{val:'super_admin',label:'Super Admin'}] : [])
+                  {val:'subadmin',label:'Sub Admin'},
+                  ...(!isSub ? [
+                    {val:'groupadmin',label:'Group Admin'},
+                    {val:'superadmin',label:'Super Admin'}
+                  ] : [])
                 ].map(r => (
                   <button 
                     key={r.val} 
@@ -594,15 +593,7 @@ export default function AdminManagement() {
                         {/* Credential Scope */}
                         <td className="px-8 py-5">
                           <span className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border shrink-0 ${roleStyle(emp.role)}`}>
-                            {emp.role === 'it_admin' 
-                              ? 'IT Admin' 
-                              : emp.role === 'hr_admin' 
-                              ? 'HR Admin' 
-                              : emp.role === 'it_staff'
-                              ? 'IT Staff'
-                              : emp.role === 'hr_staff'
-                              ? 'HR Staff'
-                              : emp.role?.replace('_',' ') || 'employee'}
+                            {formatRoleLabel(emp.role)}
                           </span>
                         </td>
 
@@ -705,16 +696,7 @@ export default function AdminManagement() {
                         <div className="flex justify-between items-center gap-2">
                           <span className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">Scope</span>
                           <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border shrink-0 ${roleStyle(emp.role)}`}>
-                            {emp.role === 'it_admin' 
-                              ? 'IT Admin' 
-                              : emp.role === 'hr_admin' 
-                              ? 'HR Admin' 
-                              : emp.role === 'it_staff' 
-                              ? 'IT Staff' 
-                              : emp.role === 'hr_staff' 
-                              ? 'HR Staff' 
-                              : emp.role?.replace('_',' ') || 'employee'}
-                          </span>
+                            {formatRoleLabel(emp.role)}</span>
                         </div>
                       </div>
 
@@ -812,16 +794,7 @@ export default function AdminManagement() {
                     onClick={e => e.stopPropagation()}
                   >
                     <span className={`px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border ${roleStyle(emp.role)}`}>
-                      {emp.role === 'it_admin' 
-                        ? 'IT Admin' 
-                        : emp.role === 'hr_admin' 
-                        ? 'HR Admin' 
-                        : emp.role === 'it_staff' 
-                        ? 'IT Staff' 
-                        : emp.role === 'hr_staff' 
-                        ? 'HR Staff' 
-                        : emp.role?.replace('_',' ') || 'employee'}
-                    </span>
+                      {formatRoleLabel(emp.role)}</span>
                     <div className="flex items-center gap-1.5">
                       <button 
                         onClick={() => openEdit(emp)} 
@@ -918,16 +891,7 @@ export default function AdminManagement() {
                 
                 <div className="mt-3.5 flex items-center justify-center gap-2">
                   <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border shrink-0 ${roleStyle(selectedEmployee.role)}`}>
-                    {selectedEmployee.role === 'it_admin' 
-                      ? 'IT Admin' 
-                      : selectedEmployee.role === 'hr_admin' 
-                      ? 'HR Admin' 
-                      : selectedEmployee.role === 'it_staff' 
-                      ? 'IT Staff' 
-                      : selectedEmployee.role === 'hr_staff' 
-                      ? 'HR Staff' 
-                      : selectedEmployee.role?.replace('_',' ') || 'employee'}
-                  </span>
+                    {formatRoleLabel(selectedEmployee.role)}</span>
                   {selectedEmployee.department && (
                     <span className="px-3 py-1 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-full text-[9px] font-black text-slate-550 dark:text-slate-400 uppercase tracking-widest shrink-0">
                       {selectedEmployee.department}
@@ -1125,25 +1089,14 @@ export default function AdminManagement() {
                   <div className="relative">
                     <select 
                       value={form.role} 
-                      onChange={e => {
-                        const val = e.target.value;
-                        if (val === 'it_admin' || val === 'it_staff') {
-                          setForm({ ...form, role: val, department: 'IT' });
-                        } else if (val === 'hr_admin' || val === 'hr_staff') {
-                          setForm({ ...form, role: val, department: 'HR' });
-                        } else {
-                          setForm({ ...form, role: val });
-                        }
-                      }} 
+                      onChange={e => setForm({ ...form, role: e.target.value })} 
                       className={inputCls + ' appearance-none cursor-pointer'}
+                      disabled={isSub}
                     >
                       <option value="employee" className="dark:bg-[#131B2E] dark:text-white">Employee</option>
-                      <option value="sub_admin" className="dark:bg-[#131B2E] dark:text-white">Sub Admin</option>
-                      <option value="it_admin" className="dark:bg-[#131B2E] dark:text-white">IT Admin</option>
-                      <option value="hr_admin" className="dark:bg-[#131B2E] dark:text-white">HR Admin</option>
-                      <option value="it_staff" className="dark:bg-[#131B2E] dark:text-white">IT Staff</option>
-                      <option value="hr_staff" className="dark:bg-[#131B2E] dark:text-white">HR Staff</option>
-                      {!isSub && <option value="super_admin" className="dark:bg-[#131B2E] dark:text-white">Super Admin</option>}
+                      {!isSub && <option value="subadmin" className="dark:bg-[#131B2E] dark:text-white">Sub Admin</option>}
+                      {!isSub && <option value="groupadmin" className="dark:bg-[#131B2E] dark:text-white">Group Admin</option>}
+                      {!isSub && <option value="superadmin" className="dark:bg-[#131B2E] dark:text-white">Super Admin</option>}
                     </select>
                     <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
                       <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
@@ -1258,25 +1211,14 @@ export default function AdminManagement() {
                   <div className="relative">
                     <select 
                       value={editForm.role || 'employee'} 
-                      onChange={e => {
-                        const val = e.target.value;
-                        if (val === 'it_admin' || val === 'it_staff') {
-                          setEditForm({ ...editForm, role: val, department: 'IT' });
-                        } else if (val === 'hr_admin' || val === 'hr_staff') {
-                          setEditForm({ ...editForm, role: val, department: 'HR' });
-                        } else {
-                          setEditForm({ ...editForm, role: val });
-                        }
-                      }} 
+                      onChange={e => setEditForm({ ...editForm, role: e.target.value })} 
                       className={inputCls + ' appearance-none cursor-pointer'}
+                      disabled={isSub}
                     >
                       <option value="employee" className="dark:bg-[#131B2E] dark:text-white">Employee</option>
-                      <option value="sub_admin" className="dark:bg-[#131B2E] dark:text-white">Sub Admin</option>
-                      <option value="it_admin" className="dark:bg-[#131B2E] dark:text-white">IT Admin</option>
-                      <option value="hr_admin" className="dark:bg-[#131B2E] dark:text-white">HR Admin</option>
-                      <option value="it_staff" className="dark:bg-[#131B2E] dark:text-white">IT Staff</option>
-                      <option value="hr_staff" className="dark:bg-[#131B2E] dark:text-white">HR Staff</option>
-                      {!isSub && <option value="super_admin" className="dark:bg-[#131B2E] dark:text-white">Super Admin</option>}
+                      {!isSub && <option value="subadmin" className="dark:bg-[#131B2E] dark:text-white">Sub Admin</option>}
+                      {!isSub && <option value="groupadmin" className="dark:bg-[#131B2E] dark:text-white">Group Admin</option>}
+                      {!isSub && <option value="superadmin" className="dark:bg-[#131B2E] dark:text-white">Super Admin</option>}
                     </select>
                     <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
                       <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>

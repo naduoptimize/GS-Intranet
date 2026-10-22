@@ -4,7 +4,6 @@ import {
   Share2, 
   Plus, 
   Search, 
-  Camera, 
   Filter, 
   MoreHorizontal, 
   X, 
@@ -143,7 +142,7 @@ const MemoriesWall = () => {
   });
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] pb-24 px-8">
+    <div className="min-h-screen bg-[#F8FAFC] pb-16">
       
       {/* Toast Notification */}
       <AnimatePresence>
@@ -161,40 +160,28 @@ const MemoriesWall = () => {
       </AnimatePresence>
       
       {/* ── SECTION 1 — IMMERSIVE HERO ── */}
-      <section className="relative h-[300px] md:h-[400px] mb-8 md:mb-12 rounded-[30px] md:rounded-[50px] overflow-hidden group shadow-2xl">
-        <img 
-          src="/memories_hero_banner_1778833359675.png" 
-          className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
-          alt="Memories Wall"
-          onError={(e) => {
-            e.target.src = 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&q=80&w=2000';
-          }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-900/80 via-slate-900/40 to-transparent" />
-        
-        <div className="relative h-full flex flex-col justify-center px-8 md:px-16 max-w-4xl">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-brand-red text-white rounded-full mb-4 md:mb-6 shadow-xl shadow-brand-red/20">
-              <Camera className="w-3 md:w-4 h-3 md:h-4" />
-              <span className="text-[8px] md:text-[10px] font-black uppercase tracking-[3px]">Captured Moments</span>
-            </div>
-            <h1 className="text-4xl md:text-7xl font-black text-white tracking-tighter mb-4 leading-tight">
-              Company <br /><span className="text-brand-red">Memories</span>
-            </h1>
-            <p className="text-sm md:text-xl text-white/70 font-medium max-w-xl mb-8">
-              Celebrating our journey and the amazing people of the George Steuart family.
-            </p>
-          </motion.div>
-        </div>
-
-
+      <section className="mb-6 sm:px-1">
+        <motion.div
+          initial={{ opacity: 0, y: 16, scale: 0.99 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.65, ease: 'easeOut' }}
+          className="group relative mx-auto h-[170px] sm:h-[210px] lg:h-[270px] max-w-[1280px] overflow-hidden rounded-[24px] sm:rounded-[28px] border border-white/90 bg-[#f7e8dc] shadow-[0_22px_55px_-30px_rgba(88,28,33,0.42)]"
+        >
+          <img
+            src="/memories-moments-hero-v2.png"
+            className="h-full w-full object-cover object-[27%_center] sm:object-center transition-transform duration-[1400ms] ease-out group-hover:scale-[1.012]"
+            alt="George Steuart Company Memories — Moments That Unite Us"
+            onError={(e) => {
+              e.target.src = '/memories_hero_banner_1778833359675.png';
+            }}
+          />
+          <div className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-white/35" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-amber-400/70 to-transparent" />
+        </motion.div>
       </section>
 
       {/* ── SECTION 2 — SEARCH & FILTERS ── */}
-      <section className="mb-8 md:mb-12">
+      <section className="mb-8">
         <div className="bg-white/80 backdrop-blur-2xl border border-slate-100 shadow-sm rounded-[24px] md:rounded-[32px] p-2 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
            <div className="relative flex-1 group">
               <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-brand-red transition-colors" />
@@ -215,7 +202,7 @@ const MemoriesWall = () => {
         </div>
       </section>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-10">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         <AnimatePresence>
           {filteredMemories.map((memory, i) => (
             <motion.div
@@ -223,10 +210,10 @@ const MemoriesWall = () => {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: i * 0.1 }}
-              className="group relative bg-white rounded-[40px] overflow-hidden shadow-[0_8px_40px_rgba(0,0,0,0.03)] hover:shadow-[0_32px_80px_rgba(0,0,0,0.1)] transition-all duration-500 flex flex-col"
+              className="group relative bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 flex flex-col"
             >
               {/* Image Container */}
-              <div className="relative aspect-[4/5] overflow-hidden">
+              <div className="relative aspect-[4/3] overflow-hidden">
                 <img 
                   src={memory.image_url} 
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"

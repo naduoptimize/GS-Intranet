@@ -49,7 +49,7 @@ export default function Offers() {
     <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#0B0F19] pb-20 transition-colors duration-300">
       
       {/* ── HERO BANNER ── */}
-      <section className="relative h-[280px] sm:h-[350px] w-full overflow-hidden rounded-[36px] shadow-xl group mb-12">
+      <section className="relative h-[240px] sm:h-[290px] w-full overflow-hidden rounded-3xl shadow-lg group mb-8">
         <img
           src="https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?auto=format&fit=crop&q=80&w=1600"
           alt="Staff Offers"
@@ -134,10 +134,10 @@ export default function Offers() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.05, type: 'spring', stiffness: 260, damping: 24 }}
                   whileHover={{ y: -6 }}
-                  className="group flex flex-col bg-white dark:bg-[#131B2E] border border-slate-150/40 dark:border-white/5 rounded-[32px] overflow-hidden shadow-md hover:shadow-2xl transition-all duration-500 min-h-[420px] relative before:absolute before:-left-2 before:top-[63%] before:-translate-y-1/2 before:w-4 before:h-4 before:bg-[#F8FAFC] dark:before:bg-[#0B0F19] before:rounded-full before:z-10 after:absolute after:-right-2 after:top-[63%] after:-translate-y-1/2 after:w-4 after:h-4 after:bg-[#F8FAFC] dark:after:bg-[#0B0F19] after:rounded-full after:z-10"
+                  className="group flex flex-col bg-white dark:bg-[#131B2E] border border-slate-150/40 dark:border-white/5 rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 min-h-[350px] relative before:absolute before:-left-2 before:top-[63%] before:-translate-y-1/2 before:w-4 before:h-4 before:bg-[#F8FAFC] dark:before:bg-[#0B0F19] before:rounded-full before:z-10 after:absolute after:-right-2 after:top-[63%] after:-translate-y-1/2 after:w-4 after:h-4 after:bg-[#F8FAFC] dark:after:bg-[#0B0F19] after:rounded-full after:z-10"
                 >
                   {/* Banner Image */}
-                  <div className="h-44 overflow-hidden relative shrink-0">
+                  <div className="h-36 overflow-hidden relative shrink-0">
                     <div className={`absolute inset-0 bg-gradient-to-br ${gradientTheme}`} />
                     <img
                       src={offer.image_url || 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=300'}

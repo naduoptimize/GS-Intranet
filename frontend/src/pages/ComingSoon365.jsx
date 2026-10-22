@@ -185,7 +185,7 @@ const ComingSoon365 = () => {
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative w-full rounded-[32px] overflow-hidden shadow-2xl mb-12 bg-gradient-to-r from-[#0078d4] via-[#0086f0] to-[#50b0ff] p-8 md:p-12 text-white flex flex-col md:flex-row items-center justify-between gap-6"
+        className="relative w-full rounded-2xl overflow-hidden shadow-lg mb-8 bg-gradient-to-r from-[#0078d4] via-[#0086f0] to-[#50b0ff] p-6 md:p-8 text-white flex flex-col md:flex-row items-center justify-between gap-5"
       >
         <div className="space-y-4 max-w-xl text-center md:text-left">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider bg-white/20 text-white border border-white/25">

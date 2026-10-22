@@ -160,59 +160,32 @@ const News = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] pb-20 px-6">
+    <div className="min-h-screen bg-[#F8FAFC] pb-20">
 
       {/* SECTION 1 — PREMIUM HERO SECTION */}
-      <section className="relative h-[500px] mb-16 rounded-[50px] overflow-hidden group">
-        <img
-          src="/media_center_hero.jpg"
-          className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
-          alt="News Hero"
-          onError={(e) => {
-            e.target.src = 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&q=80&w=2000';
-          }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-900/90 via-slate-700/20 to-transparent" />
-
-        <div className="relative h-full flex flex-col justify-center px-16 max-w-5xl">
-          <motion.div
-            initial={{ opacity: 0, x: -30 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8 }}
-          >
-            <div className="inline-flex items-center gap-3 px-5 py-2 bg-brand-red text-white rounded-full mb-8 shadow-2xl shadow-brand-red/40">
-              <Newspaper className="w-4 h-4" />
-              <span className="text-[11px] font-black uppercase tracking-[3px]">Media & Insights</span>
-            </div>
-            <h1 className="text-7xl font-black text-white tracking-tighter mb-6 leading-[0.9]">
-              Latest from <br /><span className="text-brand-red">The Group</span>
-            </h1>
-            <p className="text-xl text-white/70 font-medium max-w-2xl mb-12 leading-relaxed">
-              Experience the legacy and future of George Steuart & Co. Stay informed with our latest corporate announcements, sector breakthroughs, and community impact initiatives.
-            </p>
-
-            <div className="flex flex-col md:flex-row items-center gap-6">
-              <div className="relative w-full md:w-[500px]">
-                <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search articles, stories, news..."
-                  className="w-full pl-16 pr-6 py-5 bg-white/10 backdrop-blur-2xl border border-white/20 rounded-[28px] text-white font-medium focus:ring-4 focus:ring-brand-red/30 transition-all outline-none text-lg placeholder:text-white/30"
-                />
-              </div>
-              <button className="bg-white text-slate-900 px-10 py-5 rounded-[28px] font-black uppercase tracking-widest hover:bg-brand-red hover:text-white transition-all shadow-2xl">
-                Subscribe
-              </button>
-            </div>
-          </motion.div>
-        </div>
+      <section className="mb-6 sm:px-1">
+        <motion.div
+          initial={{ opacity: 0, y: 16, scale: 0.99 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.65, ease: 'easeOut' }}
+          className="group relative mx-auto h-[170px] sm:h-[210px] lg:h-[270px] max-w-[1280px] overflow-hidden rounded-[24px] sm:rounded-[28px] border border-white/90 bg-[#f6e7dc] shadow-[0_22px_55px_-30px_rgba(88,28,33,0.42)]"
+        >
+          <img
+            src="/news-media-center-hero-v2.png"
+            className="h-full w-full object-cover object-[26%_center] sm:object-center transition-transform duration-[1400ms] ease-out group-hover:scale-[1.012]"
+            alt="George Steuart Media Center — Latest from The Group"
+            onError={(e) => {
+              e.target.src = '/media_center_hero.jpg';
+            }}
+          />
+          <div className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-white/35" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-amber-400/70 to-transparent" />
+        </motion.div>
       </section>
 
       {/* SECTION 2 — NAVIGATION & FILTERS */}
-      <section className="sticky top-6 z-50 mb-16 px-4">
-        <div className="bg-white/80 backdrop-blur-2xl border border-white/40 shadow-[0_8px_32px_rgba(0,0,0,0.05)] rounded-[32px] p-2 flex flex-wrap items-center justify-between gap-4">
+      <section className="sticky top-4 z-50 mb-8">
+        <div className="bg-white/88 backdrop-blur-2xl border border-white/70 shadow-[0_14px_40px_-28px_rgba(15,23,42,0.45)] rounded-2xl p-2 flex flex-wrap items-center justify-between gap-3 ring-1 ring-slate-200/60">
           <div className="flex flex-wrap items-center gap-4">
             
             {/* Premium Feed Switcher */}
@@ -263,8 +236,19 @@ const News = () => {
             )}
           </div>
 
-          <div className="flex items-center gap-4 px-6 border-l border-slate-100 hidden lg:flex">
-            <div className="flex items-center gap-2">
+          <div className="flex w-full lg:w-auto lg:ml-auto items-center gap-2">
+            <div className="relative flex-1 lg:w-64">
+              <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search news..."
+                aria-label="Search news"
+                className="w-full rounded-xl border border-slate-100 bg-slate-50/90 py-2.5 pl-10 pr-4 text-[11px] font-bold text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-brand-red/20 focus:bg-white focus:ring-4 focus:ring-brand-red/5"
+              />
+            </div>
+            <div className="hidden xl:flex items-center gap-2 px-3 border-l border-slate-100">
               <TrendingUp className="w-4 h-4 text-brand-red" />
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                 {currentNews.length} Total Stories
@@ -282,9 +266,9 @@ const News = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             onClick={() => handleNewsClick(featuredNews)}
-            className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center bg-white p-12 rounded-[50px] border border-slate-100 shadow-[0_32px_80px_rgba(0,0,0,0.05)] cursor-pointer hover:shadow-2xl hover:border-brand-red/10 transition-all duration-300"
+            className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center bg-white p-6 rounded-3xl border border-slate-100 shadow-lg cursor-pointer hover:shadow-xl hover:border-brand-red/10 transition-all duration-300"
           >
-            <div className="relative rounded-[40px] overflow-hidden aspect-[4/3] group shadow-2xl">
+            <div className="relative rounded-2xl overflow-hidden aspect-[16/10] group shadow-lg">
               <img
                 src={featuredNews.image_url}
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
@@ -363,9 +347,9 @@ const News = () => {
                 key={i}
                 variants={cardVariants}
                 onClick={() => handleNewsClick(item)}
-                className="group flex flex-col bg-white rounded-[45px] border border-slate-100 shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 overflow-hidden cursor-pointer"
+                className="group flex flex-col bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden cursor-pointer"
               >
-                <div className="relative h-[300px] overflow-hidden">
+                <div className="relative h-[190px] overflow-hidden">
                   <img
                     src={item.image_url}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"

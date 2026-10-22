@@ -48,20 +48,20 @@ const ForcePasswordChange = () => {
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-xl bg-white rounded-[40px] shadow-2xl overflow-hidden border border-slate-100"
+        className="w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100"
       >
-        <div className="p-10 bg-brand-red text-white relative overflow-hidden">
+        <div className="p-7 bg-brand-red text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl"></div>
           <div className="relative z-10 flex flex-col items-center text-center">
-            <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center mb-6 border border-white/30">
-               <ShieldCheck className="w-8 h-8 text-white" />
+            <div className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center mb-4 border border-white/30">
+               <ShieldCheck className="w-7 h-7 text-white" />
             </div>
-            <h1 className="text-3xl font-black mb-2">Secure Your Account</h1>
+            <h1 className="text-2xl font-black mb-2">Secure Your Account</h1>
             <p className="text-white/80 font-medium">To protect your data, please update the temporary password assigned by the administrator.</p>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-10 space-y-6">
+        <form onSubmit={handleSubmit} className="p-7 space-y-4">
           {message.text && (
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }}
@@ -122,7 +122,7 @@ const ForcePasswordChange = () => {
             <button 
               disabled={submitting}
               type="submit"
-              className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest hover:bg-brand-red transition-all shadow-2xl shadow-slate-200 flex items-center justify-center gap-3 group"
+              className="w-full bg-slate-900 text-white py-3.5 rounded-xl font-black uppercase tracking-widest hover:bg-brand-red transition-all shadow-xl shadow-slate-200 flex items-center justify-center gap-3 group"
             >
               {submitting ? (
                 <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin" />

@@ -3,25 +3,37 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --color-brand-red: #C8102E;
-  --color-brand-red-dark: #A30D25;
-  --color-brand-red-light: #FDECEF;
-  --color-sidebar-dark: #A30D25;
-  --color-bg-light: #F8FAFC;
-  --color-border-slate: #E2E8F0;
-  --color-text-main: #1E293B;
-  --color-text-secondary: #64748B;
+  --color-brand-red: #C41230;
+  --color-brand-red-dark: #9E0E27;
+  --color-brand-red-light: #FFF0F3;
+  --color-sidebar-dark: #C41230;
+  --color-brand-gold: #C7A35A;
+  --color-brand-gold-light: #F4E8CC;
+  --color-brand-ivory: #FBF8F2;
+  --color-bg-light: #F8F5F0;
+  --color-border-slate: #E8E0D7;
+  --color-text-main: #261F20;
+  --color-text-secondary: #74686A;
   --color-success: #10B981;
   --color-warning: #F59E0B;
 }
 
 @layer base {
+  /* A slightly denser desktop scale keeps the portal proportional on the
+     1280–1600px laptop viewports used across the company. Mobile remains at
+     the native 16px scale for touch accessibility. */
+  @media (min-width: 1024px) and (max-width: 1799px) {
+    html {
+      font-size: 14px;
+    }
+  }
+
   body {
     @apply bg-bg-light text-text-main font-sans;
     background-image: 
-      radial-gradient(at 0% 0%, rgba(200, 16, 46, 0.02) 0px, transparent 50%),
-      radial-gradient(at 100% 0%, rgba(245, 158, 11, 0.015) 0px, transparent 50%),
-      linear-gradient(to bottom, #F8FAFC, #F1F5F9);
+      radial-gradient(at 0% 0%, rgba(196, 18, 48, 0.035) 0px, transparent 48%),
+      radial-gradient(at 100% 0%, rgba(199, 163, 90, 0.055) 0px, transparent 44%),
+      linear-gradient(to bottom, #FBF8F2, #F5F1EA);
     background-attachment: fixed;
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
@@ -30,16 +42,17 @@
   }
 
   ::selection {
-    background-color: rgba(200, 16, 46, 0.12);
-    color: #C8102E;
+    background-color: rgba(199, 163, 90, 0.28);
+    color: #9E0E27;
   }
 }
 
 @layer components {
   /* ═══ Ultra-Premium Glass Cards ═══ */
   .glass-card {
-    @apply bg-white/75 backdrop-blur-xl border border-slate-200/50 rounded-3xl transition-all duration-300;
-    box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.03), 0 0 0 1px rgba(226, 232, 240, 0.8);
+    @apply bg-white/80 backdrop-blur-xl border rounded-2xl transition-all duration-300;
+    border-color: rgba(226, 216, 204, 0.8);
+    box-shadow: 0 18px 45px -24px rgba(158, 14, 39, 0.20), 0 1px 2px rgba(158, 14, 39, 0.04);
   }
   
   .premium-shadow {
@@ -51,9 +64,9 @@
     transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .premium-card-hover:hover {
-    transform: translateY(-4px) scale(1.002);
-    box-shadow: 0 30px 60px -15px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(200, 16, 46, 0.15);
-    border-color: rgba(200, 16, 46, 0.15);
+    transform: translateY(-3px);
+    box-shadow: 0 24px 54px -22px rgba(158, 14, 39, 0.24), 0 0 0 1px rgba(199, 163, 90, 0.24);
+    border-color: rgba(199, 163, 90, 0.38);
   }
 
   /* ═══ Navigation Link ═══ */
@@ -95,7 +108,7 @@
   textarea:focus,
   select:focus {
     @apply bg-white border-brand-red/35 ring-4 ring-brand-red/5;
-    box-shadow: 0 0 0 1px rgba(200, 16, 46, 0.15), 0 10px 20px -10px rgba(200, 16, 46, 0.05);
+    box-shadow: 0 0 0 1px rgba(196, 18, 48, 0.16), 0 10px 20px -10px rgba(158, 14, 39, 0.10);
   }
 
   /* ═══ Elite Interactive Buttons ═══ */
@@ -109,6 +122,14 @@
   
   .premium-btn-brand {
     @apply bg-brand-red hover:bg-brand-red-dark text-white px-6 py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2.5 shadow-lg shadow-brand-red/20 active:scale-[0.98] cursor-pointer;
+  }
+}
+
+/* Shared page density. This applies to every protected route rendered by
+   MainLayout, including employee, admin, directory and service-desk pages. */
+@media (min-width: 1024px) {
+  .app-page-shell {
+    max-width: 1400px;
   }
 }
 
@@ -131,7 +152,7 @@
 }
 
 .animated-gradient-border {
-  background: linear-gradient(135deg, #C8102E, #f59e0b, #3b82f6, #10b981, #C8102E);
+  background: linear-gradient(135deg, #9E0E27, #C41230, #C7A35A, #E8D5A8, #C41230);
   background-size: 400% 400%;
   animation: gradient-flow 6s ease infinite;
 }
@@ -181,7 +202,7 @@
 
 /* ═══ Text gradient utility ═══ */
 .text-gradient-red {
-  background: linear-gradient(135deg, #C8102E 0%, #E8384F 100%);
+  background: linear-gradient(135deg, #9E0E27 0%, #8A2632 58%, #C7A35A 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -368,8 +389,8 @@ html.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
    SAFETY GUARD: GUARANTEE SIDEBAR COLOR & ACTIVE STATE INTEGRITY IN DARK MODE
    ══════════════════════════════════════════════════════════════════════════ */
 html.dark aside,
-html.dark aside.bg-brand-red-dark {
-  background-color: #A30D25 !important;
+html.dark aside.bg-brand-red {
+  background-color: #C41230 !important;
 }
 
 html.dark aside .bg-white {
@@ -377,7 +398,7 @@ html.dark aside .bg-white {
 }
 
 html.dark aside .text-brand-red {
-  color: #C8102E !important;
+  color: #C41230 !important;
 }
 
 html.dark aside .nav-link:hover {
@@ -387,5 +408,5 @@ html.dark aside .nav-link:hover {
 
 html.dark aside .nav-link.active {
   background-color: #FFFFFF !important;
-  color: #C8102E !important;
+  color: #C41230 !important;
 }

@@ -311,7 +311,7 @@ const HelpDesk = () => {
       label: 'People & Culture',
       icon: User,
       description: 'Attendance, Payroll, & Benefits',
-      color: 'from-brand-red to-[#A00D25]',
+      color: 'from-brand-red to-[#9E0E27]',
       accent: 'text-brand-red',
       categories: [
         { 
@@ -845,9 +845,9 @@ const HelpDesk = () => {
       <motion.section 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative mb-10 rounded-[38px] overflow-hidden bg-white border border-slate-100 shadow-xl flex flex-col md:flex-row min-h-[360px]"
+        className="relative mb-8 rounded-3xl overflow-hidden bg-white border border-slate-100 shadow-lg flex flex-col md:flex-row min-h-[280px]"
       >
-        <div className="flex-1 p-8 md:p-14 flex flex-col justify-center relative z-10">
+        <div className="flex-1 p-7 md:p-9 flex flex-col justify-center relative z-10">
           <div className="flex items-center gap-3 mb-5">
             <div className="flex items-center gap-1.5 bg-brand-red/5 px-3 py-1.5 rounded-full border border-brand-red/10">
               <ShieldCheck className="w-3.5 h-3.5 text-brand-red" />
@@ -856,7 +856,7 @@ const HelpDesk = () => {
             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Helpdesk Help Hub</span>
           </div>
 
-          <h1 className="text-3xl md:text-5xl font-black text-slate-800 mb-5 leading-tight tracking-tight">
+          <h1 className="text-3xl lg:text-4xl font-black text-slate-800 mb-4 leading-tight tracking-tight">
             Centralized Request <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-red to-brand-red-dark">Help Desk Portal</span>
           </h1>
@@ -882,7 +882,7 @@ const HelpDesk = () => {
         </div>
         
         {/* Banner Graphics */}
-        <div className="w-full md:w-[35%] h-full relative overflow-hidden min-h-[250px] md:min-h-auto flex-shrink-0">
+        <div className="w-full md:w-[34%] h-full relative overflow-hidden min-h-[200px] md:min-h-0 flex-shrink-0">
           <img 
             src="/helpdesk_banner_3d.png" 
             alt="Corporate Support Desk" 

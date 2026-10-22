@@ -419,6 +419,7 @@ const WeatherCard = ({
   weatherUpdatedAt,
   weatherRefreshing,
   onRefresh,
+  compact = false,
 }) => {
   const condition = getCondition(weatherData.code);
   const sky = SKY[condition] || SKY['partly-cloudy'];
@@ -437,6 +438,96 @@ const WeatherCard = ({
     background: `linear-gradient(160deg, ${sky.from} 0%, ${sky.via} 55%, ${sky.to} 100%)`,
   }), [sky]);
 
+  const weatherScene = (
+    <>
+      {condition === 'sunny' && <SunScene />}
+      {condition === 'partly-cloudy' && (
+        <>
+          <SunScene />
+          <CloudScene condition="partly-cloudy" />
+        </>
+      )}
+      {condition === 'cloudy' && <CloudScene condition="cloudy" />}
+      {condition === 'fog' && <FogScene />}
+      {condition === 'rain' && <RainScene heavy={false} />}
+      {condition === 'heavy-rain' && <RainScene heavy />}
+      {condition === 'storm' && <StormScene />}
+      {condition === 'snow' && <SnowScene />}
+    </>
+  );
+
+  if (compact) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: 'easeOut' }}
+        style={{
+          ...bgStyle,
+          minHeight: 224,
+          height: '100%',
+          position: 'relative',
+          overflow: 'hidden',
+          borderRadius: 18,
+          border: `1px solid ${cardBorderCol}`,
+          boxShadow: '0 16px 38px rgba(15,23,42,0.22)',
+        }}
+      >
+        <style>{WEATHER_STYLES}</style>
+        {weatherScene}
+        <div style={{ position:'absolute', inset:0, background:'linear-gradient(125deg,rgba(3,12,28,.35),transparent 62%)', zIndex:2 }} />
+
+        <div style={{ position:'relative', zIndex:10, padding:16, height:'100%', display:'flex', flexDirection:'column' }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+            <div>
+              <div style={{ fontSize:10, fontWeight:900, letterSpacing:'0.16em', textTransform:'uppercase', color:isSnow ? '#334155' : 'rgba(255,255,255,.82)' }}>
+                Colombo · Live
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:5, marginTop:4, fontSize:9, fontWeight:800, color:isSnow ? '#64748b' : 'rgba(255,255,255,.56)' }}>
+                <span style={{ width:6, height:6, borderRadius:'50%', background:'#34d399', boxShadow:'0 0 8px #34d399', animation:'ws-frost 1.8s ease-in-out infinite' }} />
+                Updates every 5 min
+              </div>
+            </div>
+            <button
+              onClick={onRefresh}
+              disabled={weatherRefreshing}
+              aria-label="Refresh live weather"
+              title={updatedStr ? `Updated ${updatedStr}` : 'Refresh weather'}
+              style={{ width:32, height:32, display:'grid', placeItems:'center', borderRadius:10, border:'1px solid rgba(255,255,255,.2)', background:'rgba(255,255,255,.1)', color:isSnow ? '#334155' : '#fff', backdropFilter:'blur(10px)', cursor:'pointer' }}
+            >
+              <RefreshCw size={13} style={{ animation: weatherRefreshing ? 'ws-spin-rays 1s linear infinite' : 'none' }} />
+            </button>
+          </div>
+
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, marginTop:13 }}>
+            <div style={{ display:'flex', alignItems:'flex-end', gap:10 }}>
+              <span style={{ fontSize:52, lineHeight:.82, fontWeight:900, letterSpacing:'-.05em', color:isSnow ? '#1e293b' : '#fff', textShadow:isSnow ? 'none' : '0 6px 22px rgba(0,0,0,.28)' }}>
+                {weatherData.temp}°
+              </span>
+              <div style={{ paddingBottom:1 }}>
+                <div style={{ maxWidth:110, fontSize:13, lineHeight:1.15, fontWeight:850, color:isSnow ? '#1e293b' : '#fff' }}>{weatherData.description || sky.label}</div>
+                <div style={{ display:'flex', alignItems:'center', gap:3, marginTop:5, fontSize:9, fontWeight:700, color:isSnow ? '#64748b' : 'rgba(255,255,255,.65)' }}><Thermometer size={10} />Feels {weatherData.feelsLike}°</div>
+              </div>
+            </div>
+            <div style={{ display:'grid', gap:5, minWidth:92 }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, padding:'6px 8px', borderRadius:10, background:'rgba(255,255,255,.1)', border:'1px solid rgba(255,255,255,.13)', color:isSnow ? '#334155' : '#fff', backdropFilter:'blur(10px)' }}><Droplets size={12} color="#38bdf8" /><span style={{ fontSize:10, fontWeight:900 }}>{weatherData.humidity}%</span></div>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, padding:'6px 8px', borderRadius:10, background:'rgba(255,255,255,.1)', border:'1px solid rgba(255,255,255,.13)', color:isSnow ? '#334155' : '#fff', backdropFilter:'blur(10px)' }}><Wind size={12} color="#34d399" /><span style={{ fontSize:10, fontWeight:900 }}>{weatherData.windspeed} km/h</span></div>
+            </div>
+          </div>
+
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(3,minmax(0,1fr))', gap:5, marginTop:'auto', paddingTop:13 }}>
+            {(weatherData.forecast || []).slice(0, 3).map((day, i) => (
+              <div key={`${day.day}-${i}`} style={{ padding:'7px 7px 6px', borderRadius:10, background:'rgba(255,255,255,.09)', border:'1px solid rgba(255,255,255,.12)', backdropFilter:'blur(10px)' }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:4 }}><span style={{ fontSize:9, fontWeight:850, color:isSnow ? '#334155' : 'rgba(255,255,255,.8)' }}>{day.day}</span><ForecastIcon code={day.code} size={13} /></div>
+                <div style={{ marginTop:4, fontSize:10, fontWeight:900, color:isSnow ? '#1e293b' : '#fff' }}>{day.tempMax}° <span style={{ color:isSnow ? '#64748b' : 'rgba(255,255,255,.5)' }}>{day.tempMin}°</span></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 24 }}
@@ -444,12 +535,12 @@ const WeatherCard = ({
       transition={{ duration: 0.6, ease: 'easeOut' }}
       style={{
         ...bgStyle,
-        borderRadius: 28,
+        borderRadius: 22,
         position: 'relative',
         overflow: 'hidden',
         border: `1.5px solid ${cardBorderCol}`,
         boxShadow: '0 24px 60px rgba(0,0,0,0.45), 0 4px 16px rgba(0,0,0,0.25)',
-        minHeight: 420,
+        minHeight: 340,
         display: 'flex',
         flexDirection: 'column',
         transition: 'background 1.2s ease',
@@ -488,10 +579,10 @@ const WeatherCard = ({
       }}/>
 
       {/* ── Content ─────────────────────────────────────────────────────── */}
-      <div style={{ position:'relative', zIndex:10, padding:'22px 22px 18px', display:'flex', flexDirection:'column', flex:1 }}>
+      <div style={{ position:'relative', zIndex:10, padding:'18px 18px 15px', display:'flex', flexDirection:'column', flex:1 }}>
 
         {/* ── HEADER: location + refresh ─────────────────────────────── */}
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:18 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:12 }}>
           <div>
             <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:4 }}>
               <span style={{ fontSize:11, color: isSnow ? 'rgba(30,40,60,0.7)' : 'rgba(255,255,255,0.7)', fontWeight:800, letterSpacing:'0.18em', textTransform:'uppercase' }}>
@@ -539,11 +630,11 @@ const WeatherCard = ({
         </div>
 
         {/* ── MAIN TEMP + CONDITION ──────────────────────────────────── */}
-        <div style={{ marginBottom:20 }}>
+        <div style={{ marginBottom:14 }}>
           <div style={{ display:'flex', alignItems:'flex-end', gap:12 }}>
             {/* Big temperature */}
             <span style={{
-              fontSize: 88,
+              fontSize: 68,
               fontWeight: 900,
               lineHeight: 0.92,
               letterSpacing: '-0.04em',
@@ -557,7 +648,7 @@ const WeatherCard = ({
             <div style={{ paddingBottom: 8 }}>
               {/* Condition label */}
               <div style={{
-                fontSize:18, fontWeight:800,
+                fontSize:16, fontWeight:800,
                 color: isSnow ? '#1e2d3d' : '#ffffff',
                 textShadow: isSnow ? 'none' : '0 1px 10px rgba(0,0,0,0.35)',
                 lineHeight:1.2, marginBottom:4,
@@ -574,7 +665,7 @@ const WeatherCard = ({
         </div>
 
         {/* ── STAT PILLS: Humidity + Wind ────────────────────────────── */}
-        <div style={{ display:'flex', gap:10, marginBottom:20 }}>
+        <div style={{ display:'flex', gap:8, marginBottom:14 }}>
           {[
             { icon: <Droplets size={14}/>,  label:'Humidity',   val:`${weatherData.humidity}%`,      accent:'rgba(56,189,248,0.8)' },
             { icon: <Wind size={14}/>,       label:'Wind',       val:`${weatherData.windspeed} km/h`, accent:'rgba(52,211,153,0.8)' },
@@ -583,7 +674,7 @@ const WeatherCard = ({
               flex:1, display:'flex', alignItems:'center', gap:9,
               background:'rgba(255,255,255,0.10)',
               border:'1px solid rgba(255,255,255,0.16)',
-              borderRadius:16, padding:'10px 14px',
+              borderRadius:13, padding:'8px 11px',
               backdropFilter:'blur(12px)',
             }}>
               <span style={{ color: isSnow ? '#2563eb' : accent }}>{icon}</span>
@@ -604,15 +695,15 @@ const WeatherCard = ({
         <div style={{
           background:'rgba(255,255,255,0.08)',
           border:'1px solid rgba(255,255,255,0.12)',
-          borderRadius:20,
+          borderRadius:16,
           backdropFilter:'blur(14px)',
-          padding:'14px 14px',
+          padding:'10px 12px',
           marginTop:'auto',
         }}>
-          <div style={{ fontSize:9, fontWeight:900, letterSpacing:'0.2em', textTransform:'uppercase', color: isSnow ? 'rgba(30,40,60,0.5)' : 'rgba(255,255,255,0.45)', marginBottom:12 }}>
+          <div style={{ fontSize:9, fontWeight:900, letterSpacing:'0.2em', textTransform:'uppercase', color: isSnow ? 'rgba(30,40,60,0.5)' : 'rgba(255,255,255,0.45)', marginBottom:8 }}>
             3-Day Outlook
           </div>
-          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+          <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
             {weatherData.forecast.map((day, i) => (
               <div key={i} style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                 {/* Day name */}

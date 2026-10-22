@@ -150,8 +150,8 @@ router.post('/register-super-admin', async (req, res) => {
     }
 
     try {
-        // Block if a super_admin already exists
-        const [existing] = await db.execute("SELECT id FROM users WHERE role = 'super_admin' LIMIT 1");
+        // Block if a superadmin already exists
+        const [existing] = await db.execute("SELECT id FROM users WHERE role IN ('superadmin', 'super_admin') LIMIT 1");
         if (existing.length > 0) {
             return res.status(403).json({ message: 'A Super Admin account already exists. Please contact your system administrator.' });
         }
@@ -167,7 +167,7 @@ router.post('/register-super-admin', async (req, res) => {
         const [result] = await db.execute(
             `INSERT INTO users 
              (full_name, email, password, role, nic_number, employee_no, date_of_birth, is_active, needs_password_change) 
-             VALUES (?, ?, ?, 'super_admin', ?, ?, ?, TRUE, FALSE)`,
+             VALUES (?, ?, ?, 'superadmin', ?, ?, ?, TRUE, FALSE)`,
             [
                 full_name.trim(),
                 email.trim().toLowerCase(),
@@ -185,36 +185,78 @@ router.post('/register-super-admin', async (req, res) => {
     }
 });
 
+// =====================================================================
+// Microsoft 365 / Azure AD OAuth Routes
+// =====================================================================
+
+// Initiate Microsoft OAuth Login (redirects directly to Microsoft login)
+router.get('/microsoft', (req, res) => {
+    const clientId = process.env.AZURE_CLIENT_ID;
+    const tenantId = process.env.AZURE_TENANT_ID;
+    const redirectUri = process.env.AZURE_REDIRECT_URI || 'http://localhost:5000/api/auth/microsoft/callback';
+    
+    if (!clientId || !tenantId) {
+        return res.status(500).json({ message: 'Microsoft configuration is missing on server (.env).' });
+    }
+    
+    const scope = encodeURIComponent('openid profile email User.Read');
+    const state = 'microsoft-auth-flow';
+    const authUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&response_mode=query&scope=${scope}&state=${state}`;
+    
+    res.redirect(authUrl);
+});
+
+// Get Microsoft OAuth Authorization URL as JSON
+router.get('/microsoft/url', (req, res) => {
+    const clientId = process.env.AZURE_CLIENT_ID;
+    const tenantId = process.env.AZURE_TENANT_ID;
+    const redirectUri = process.env.AZURE_REDIRECT_URI || 'http://localhost:5000/api/auth/microsoft/callback';
+    
+    if (!clientId || !tenantId) {
+        return res.status(500).json({ message: 'Microsoft configuration is missing on server (.env).' });
+    }
+    
+    const scope = encodeURIComponent('openid profile email User.Read');
+    const state = 'microsoft-auth-flow';
+    const authUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&response_mode=query&scope=${scope}&state=${state}`;
+    
+    res.json({ authUrl, clientId, tenantId, redirectUri });
+});
+
 // Microsoft 365 OAuth Callback Route
 router.get('/microsoft/callback', async (req, res) => {
-    const { code } = req.query;
+    const { code, error, error_description } = req.query;
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    
+    if (error) {
+        console.error('Microsoft OAuth error response:', error, error_description);
+        return res.redirect(`${frontendUrl}/login?error=` + encodeURIComponent(error_description || error));
+    }
     
     if (!code) {
-        return res.redirect('http://localhost:5173/login?error=' + encodeURIComponent('Authorization code is missing.'));
+        return res.redirect(`${frontendUrl}/login?error=` + encodeURIComponent('Authorization code is missing.'));
     }
     
     try {
         const clientId = process.env.AZURE_CLIENT_ID;
         const tenantId = process.env.AZURE_TENANT_ID;
         const clientSecret = process.env.AZURE_CLIENT_SECRET;
+        const redirectUri = process.env.AZURE_REDIRECT_URI || 'http://localhost:5000/api/auth/microsoft/callback';
         
         if (!clientId || !tenantId || !clientSecret) {
-            return res.redirect('http://localhost:5173/login?error=' + encodeURIComponent('Microsoft configuration is missing on server.'));
+            return res.redirect(`${frontendUrl}/login?error=` + encodeURIComponent('Microsoft configuration is missing on server (.env).'));
         }
-        
-        const redirectUri = 'http://localhost:5000/api/auth/microsoft/callback';
         
         // Exchange code for Access Token
         const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
         const tokenParams = new URLSearchParams();
         tokenParams.append('client_id', clientId);
-        tokenParams.append('scope', 'https://graph.microsoft.com/.default');
         tokenParams.append('client_secret', clientSecret);
         tokenParams.append('grant_type', 'authorization_code');
         tokenParams.append('code', code);
         tokenParams.append('redirect_uri', redirectUri);
         
-        console.log('Exchanging auth code for MS token (callback)...');
+        console.log('Exchanging auth code for Microsoft token...');
         const tokenRes = await axios.post(tokenUrl, tokenParams.toString(), {
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
         });
@@ -222,7 +264,7 @@ router.get('/microsoft/callback', async (req, res) => {
         const accessToken = tokenRes.data.access_token;
         
         // Fetch User profile from Microsoft Graph
-        console.log('Querying Graph API User Profile (callback)...');
+        console.log('Querying Graph API User Profile (/v1.0/me)...');
         const profileRes = await axios.get('https://graph.microsoft.com/v1.0/me', {
             headers: {
                 'Authorization': `Bearer ${accessToken}`,
@@ -234,7 +276,7 @@ router.get('/microsoft/callback', async (req, res) => {
         const email = (me.mail || me.userPrincipalName || '').trim().toLowerCase();
         
         if (!email) {
-            return res.redirect('http://localhost:5173/login?error=' + encodeURIComponent('Could not retrieve email from Microsoft profile.'));
+            return res.redirect(`${frontendUrl}/login?error=` + encodeURIComponent('Could not retrieve email from Microsoft profile.'));
         }
         
         // Check if user exists in the database
@@ -245,7 +287,7 @@ router.get('/microsoft/callback', async (req, res) => {
         
         let user;
         if (rows.length === 0) {
-            // User does not exist, let's create a new active user
+            // User does not exist, create a new active user
             console.log(`Microsoft login: Creating new user for ${email}...`);
             const randomPassword = require('crypto').randomBytes(16).toString('hex');
             const hashedPassword = await bcrypt.hash(randomPassword, 10);
@@ -254,7 +296,7 @@ router.get('/microsoft/callback', async (req, res) => {
             const [insertResult] = await db.execute(
                 `INSERT INTO users 
                  (full_name, email, password, role, is_active, is_synced, ignore_sync, needs_password_change) 
-                 VALUES (?, ?, ?, 'employee', TRUE, TRUE, FALSE, FALSE)`,
+                 VALUES (?, ?, ?, 'employee', 1, 1, 0, 0)`,
                 [fullName, email, hashedPassword]
             );
             
@@ -268,12 +310,12 @@ router.get('/microsoft/callback', async (req, res) => {
             
             // If the user's account is deactivated, reject
             if (!user.is_active) {
-                return res.redirect('http://localhost:5173/login?error=' + encodeURIComponent('Your account has been deactivated. Please contact your administrator.'));
+                return res.redirect(`${frontendUrl}/login?error=` + encodeURIComponent('Your account has been deactivated. Please contact your administrator.'));
             }
             
-            // For Microsoft authenticated users, we bypass password change
+            // For Microsoft authenticated users, bypass password change
             if (user.needs_password_change) {
-                await db.execute('UPDATE users SET needs_password_change = FALSE WHERE id = ?', [user.id]);
+                await db.execute('UPDATE users SET needs_password_change = 0 WHERE id = ?', [user.id]);
                 user.needs_password_change = 0;
             }
         }
@@ -298,13 +340,14 @@ router.get('/microsoft/callback', async (req, res) => {
             needs_password_change: false
         };
         
-        return res.redirect(`http://localhost:5173/login?token=${token}&user=${encodeURIComponent(JSON.stringify(userObj))}`);
+        return res.redirect(`${frontendUrl}/login?token=${token}&user=${encodeURIComponent(JSON.stringify(userObj))}`);
         
     } catch (err) {
         console.error('Microsoft Login Callback Error:', err.response?.data || err.message);
-        const errMsg = err.response?.data?.error_description || err.message || 'Microsoft authentication failed.';
-        return res.redirect('http://localhost:5173/login?error=' + encodeURIComponent(errMsg));
+        const errMsg = err.response?.data?.error_description || err.response?.data?.error || err.message || 'Microsoft authentication failed.';
+        return res.redirect(`${frontendUrl}/login?error=` + encodeURIComponent(errMsg));
     }
 });
 
 module.exports = router;
+

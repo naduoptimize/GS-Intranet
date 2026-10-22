@@ -51,33 +51,80 @@ router.get('/:id', async (req, res) => {
 
 // Add new subsidiary
 router.post('/', async (req, res) => {
-    const { name, description, mission, vision, location, website, email, phone, phone_2 } = req.body;
+    const { 
+        name, description, category, location, website, email, 
+        phone, phone_2, employees, logo_url, cover_image, 
+        mission, vision, highlights, status 
+    } = req.body;
     if (!name) return res.status(400).json({ message: 'Name is required' });
     try {
         const [result] = await db.execute(
-            'INSERT INTO subsidiaries (name, description, mission, vision, location, website, email, phone, phone_2) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [name, description || null, mission || null, vision || null, location || null, website || null, email || null, phone || null, phone_2 || null]
+            `INSERT INTO subsidiaries 
+             (name, description, category, location, website, email, phone, phone_2, employees, logo_url, cover_image, mission, vision, highlights, status) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                name, 
+                description || null, 
+                category || 'General', 
+                location || null, 
+                website || null, 
+                email || null, 
+                phone || null, 
+                phone_2 || null,
+                employees ? parseInt(employees, 10) : 0,
+                logo_url || null,
+                cover_image || null,
+                mission || null, 
+                vision || null, 
+                highlights || null,
+                status || 'Active'
+            ]
         );
         res.status(201).json({ id: result.insertId, message: 'Subsidiary added successfully' });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ message: 'Server error: ' + err.message });
     }
 });
 
 // Update subsidiary
 router.put('/:id', async (req, res) => {
-    const { name, description, mission, vision, location, website, email, phone, phone_2 } = req.body;
+    const { 
+        name, description, category, location, website, email, 
+        phone, phone_2, employees, logo_url, cover_image, 
+        mission, vision, highlights, status 
+    } = req.body;
     if (!name) return res.status(400).json({ message: 'Name is required' });
     try {
         await db.execute(
-            'UPDATE subsidiaries SET name = ?, description = ?, mission = ?, vision = ?, location = ?, website = ?, email = ?, phone = ?, phone_2 = ? WHERE id = ?',
-            [name, description || null, mission || null, vision || null, location || null, website || null, email || null, phone || null, phone_2 || null, req.params.id]
+            `UPDATE subsidiaries SET 
+             name = ?, description = ?, category = ?, location = ?, website = ?, email = ?, 
+             phone = ?, phone_2 = ?, employees = ?, logo_url = ?, cover_image = ?, 
+             mission = ?, vision = ?, highlights = ?, status = ? 
+             WHERE id = ?`,
+            [
+                name, 
+                description || null, 
+                category || 'General', 
+                location || null, 
+                website || null, 
+                email || null, 
+                phone || null, 
+                phone_2 || null,
+                employees !== undefined && employees !== null ? parseInt(employees, 10) : 0,
+                logo_url || null,
+                cover_image || null,
+                mission || null, 
+                vision || null, 
+                highlights || null,
+                status || 'Active',
+                req.params.id
+            ]
         );
         res.json({ message: 'Subsidiary updated successfully' });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ message: 'Server error: ' + err.message });
     }
 });
 
@@ -97,12 +144,10 @@ router.delete('/:id', async (req, res) => {
 // Get directors for a subsidiary
 router.get('/:id/directors', async (req, res) => {
     try {
-        const [rows] = await db.execute(`
-            SELECT sd.*, u.email, u.full_name AS user_name, u.job_title AS user_title, u.profile_pic AS user_profile_pic, u.is_synced
-            FROM subsidiary_directors sd
-            LEFT JOIN users u ON sd.user_id = u.id
-            WHERE sd.subsidiary_id = ?
-        `, [req.params.id]);
+        const [rows] = await db.execute(
+            'SELECT * FROM subsidiary_directors WHERE subsidiary_id = ? ORDER BY id ASC',
+            [req.params.id]
+        );
         res.json(rows);
     } catch (err) {
         console.error(err);

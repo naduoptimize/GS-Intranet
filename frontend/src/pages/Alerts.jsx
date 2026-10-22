@@ -82,7 +82,7 @@ export default function Alerts() {
     <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#0B0F19] pb-20 transition-colors duration-300">
       
       {/* ── HERO SECTION ── */}
-      <section className="relative h-[250px] sm:h-[300px] w-full overflow-hidden rounded-[36px] bg-gradient-to-br from-[#E23E3E] via-[#C82A2A] to-[#A81B1B] text-white shadow-xl mb-12">
+      <section className="relative h-[220px] sm:h-[250px] w-full overflow-hidden rounded-3xl bg-gradient-to-br from-[#E23E3E] via-[#C82A2A] to-[#A81B1B] text-white shadow-lg mb-8">
         <div className="absolute inset-0 bg-[radial-gradient(at_0%_0%,rgba(255,255,255,0.12)_0px,transparent_50%)]" />
         <div className="absolute -top-12 -right-12 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
         
@@ -205,7 +205,7 @@ export default function Alerts() {
                         </span>
                         
                         {alert.subsidiary_name && (
-                          <span className="text-[8px] font-black text-[#C8102E]/80 dark:text-[#C8102E] uppercase tracking-widest px-2 py-0.5 rounded border border-[#C8102E]/10 dark:border-white/5 bg-[#C8102E]/5 shrink-0 leading-none">
+                          <span className="text-[8px] font-black text-[#C41230]/80 dark:text-[#C41230] uppercase tracking-widest px-2 py-0.5 rounded border border-[#C41230]/10 dark:border-white/5 bg-[#C41230]/5 shrink-0 leading-none">
                             {alert.subsidiary_name}
                           </span>
                         )}

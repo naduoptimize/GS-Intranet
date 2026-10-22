@@ -136,10 +136,10 @@ const HolidayCalendar = () => {
     .filter(h => toDateStr(h.holiday_date) >= today0)
     .sort((a, b) => toDateStr(a.holiday_date).localeCompare(toDateStr(b.holiday_date)))
     .slice(0, 4);  return (
-    <div className="min-h-screen bg-[#F8FAFC] pb-20 px-10">
+    <div className="min-h-screen bg-[#F8FAFC] pb-16">
       
       {/* ── HEADER SECTION ── */}
-      <div className="flex items-center justify-between py-10">
+      <div className="flex items-center justify-between py-6">
         <div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">Calendar</h1>
           <p className="text-sm text-slate-400 font-medium mt-1">Stay aligned with official schedules, public holidays, and poya days.</p>
@@ -207,7 +207,7 @@ const HolidayCalendar = () => {
       </div>
 
       {/* ── LEGEND / TYPE FILTERS ── */}
-      <div className="flex items-center gap-3 mb-10 overflow-x-auto no-scrollbar pb-2">
+      <div className="flex items-center gap-2 mb-6 overflow-x-auto no-scrollbar pb-2">
         {types.map((t) => (
           <button
             key={t.name}
@@ -220,11 +220,11 @@ const HolidayCalendar = () => {
         ))}
       </div>
 
-      <div className="grid grid-cols-12 gap-10">
+      <div className="grid grid-cols-12 gap-5">
         
         {/* ── MAIN CALENDAR GRID ── */}
         <div className="col-span-9">
-          <div className="bg-white rounded-[40px] border border-slate-100 shadow-[0_8px_48px_rgba(0,0,0,0.04)] overflow-hidden">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-lg overflow-hidden">
             <div className="grid grid-cols-7 border-b border-slate-50 bg-slate-50/30">
               {daysOfWeek.map(day => (
                 <div key={day} className="py-6 text-center text-[10px] font-black text-slate-400 uppercase tracking-[4px]">{day}</div>
@@ -237,7 +237,7 @@ const HolidayCalendar = () => {
                 const isToday = date.day === new Date().getDate() && currentMonth === new Date().getMonth() && currentYear === new Date().getFullYear() && date.currentMonth;
                 
                 return (
-                  <div key={i} className={`min-h-[140px] p-6 border-b border-r border-slate-50 flex flex-col items-center group transition-colors hover:bg-slate-50/50 ${!date.currentMonth ? 'opacity-20 bg-slate-50/20' : ''}`}>
+                <div key={i} className={`min-h-[105px] p-3 border-b border-r border-slate-50 flex flex-col items-center group transition-colors hover:bg-slate-50/50 ${!date.currentMonth ? 'opacity-20 bg-slate-50/20' : ''}`}>
                     <span className={`text-xl font-black mb-2 ${isToday ? 'text-brand-red' : date.day === 1 || i % 7 === 0 || i % 7 === 6 ? 'text-red-400' : 'text-slate-800'}`}>
                       {date.day}
                     </span>
@@ -269,10 +269,10 @@ const HolidayCalendar = () => {
         </div>
 
         {/* ── RIGHT SIDEBAR ── */}
-        <div className="col-span-3 space-y-8">
+        <div className="col-span-3 space-y-5">
           
           {/* Upcoming Events */}
-          <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm p-8">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
             <div className="flex items-center justify-between mb-8">
               <h3 className="text-lg font-black text-slate-900 tracking-tight">Upcoming Events</h3>
               <button className="text-[10px] font-black text-brand-red uppercase tracking-widest hover:underline transition-all">View all</button>
@@ -305,7 +305,7 @@ const HolidayCalendar = () => {
           </div>
 
           {/* Calendar Legend */}
-          <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm p-8">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
             <h3 className="text-lg font-black text-slate-900 tracking-tight mb-8">Calendar Legend</h3>
             <div className="space-y-4">
               {types.slice(1).map((t) => (

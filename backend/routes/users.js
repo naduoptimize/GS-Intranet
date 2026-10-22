@@ -2,10 +2,12 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
+const axios = require('axios');
+const { isSuperOrGroupAdmin, isSubAdmin, normalizeRole } = require('../utils/roles');
 
 // Get all users with subsidiary info
 router.get('/', async (req, res) => {
-    const { subsidiaryId } = req.query;
+    const { subsidiaryId, role, user_subsidiary_id } = req.query;
     try {
         let query = `
             SELECT u.id, u.full_name, u.email, u.role, u.department, u.job_title, u.phone, u.profile_pic, u.bio, u.subsidiary_id, u.date_of_birth, u.nic_number, u.employee_no, u.is_synced, s.name as subsidiary_name 
@@ -15,9 +17,16 @@ router.get('/', async (req, res) => {
         `;
         let params = [];
 
-        if (subsidiaryId) {
+        // If queried by subadmin, enforce their subsidiary
+        if (isSubAdmin(role)) {
+            const subId = user_subsidiary_id || subsidiaryId;
+            if (subId) {
+                query += ' AND u.subsidiary_id = ?';
+                params.push(subId);
+            }
+        } else if (subsidiaryId && subsidiaryId !== 'All' && subsidiaryId !== 'all') {
             query += ' AND u.subsidiary_id = ?';
-            params = [subsidiaryId];
+            params.push(subsidiaryId);
         }
 
         query += ' ORDER BY u.full_name ASC';
@@ -50,8 +59,6 @@ router.get('/birthdays', async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 });
-
-const axios = require('axios');
 
 let cachedToken = null;
 let tokenExpiry = null;
@@ -86,58 +93,185 @@ async function getAccessToken() {
     return cachedToken;
 }
 
-// Helper to normalize and consolidate company names from Active Directory department field
-function normalizeCompany(dept) {
-    if (!dept) return 'GEORGE STEUART GROUP';
-    
-    let cleaned = dept.trim();
-    const lower = cleaned.toLowerCase();
-    
-    if (lower.includes('travel')) {
-        return 'GEORGE STEUART TRAVELS (PVT) LTD';
+// Helper to intelligently resolve subsidiary and clean department from Azure AD user data
+function resolveSubsidiaryAndDepartment(u, existingSubs) {
+    const email = (u.mail || u.userPrincipalName || '').toLowerCase().trim();
+    const dept = (u.department || '').trim();
+    const company = (u.companyName || '').trim();
+    const allText = `${company} ${dept} ${email}`.toLowerCase();
+
+    const findSub = (...keywords) => {
+        for (const kw of keywords) {
+            const found = existingSubs.find(s => s.name.toLowerCase().includes(kw.toLowerCase()));
+            if (found) return found.id;
+        }
+        return null;
+    };
+
+    let subId = null;
+    let companyName = company || dept || 'GEORGE STEUART GROUP';
+
+    // 1. Optimize
+    if (email.endsWith('@gsoptimize.lk') || allText.includes('optimize')) {
+        subId = findSub('optimize');
+        companyName = 'GEORGE STEUART OPTIMIZE (PVT) LTD';
     }
-    if (lower.includes('insurance')) {
-        return 'GEORGE STEUART INSURANCE BROKERS (PVT) LTD';
+    // 2. Seregen
+    else if (email.endsWith('@seregen.lk') || allText.includes('seregen')) {
+        subId = findSub('seregen') || findSub('consumer');
+        companyName = 'SEREGEN (PVT) LTD';
     }
-    if (lower.includes('& company') || lower.includes('& co.') || lower.includes('& co ')) {
-        return 'GEORGE STEUART & COMPANY LTD';
+    // 3. Divasa Pharma
+    else if (email.endsWith('@divasapharma.lk') || allText.includes('divasa')) {
+        subId = findSub('divasa') || findSub('health');
+        companyName = 'DIVASA PHARMA LTD';
     }
-    if (lower.includes('aviation')) {
-        return 'GEORGE STEUART AVIATION (PVT) LTD';
+    // 4. Education
+    else if (email.endsWith('@gseducation.lk') || allText.includes('education')) {
+        subId = findSub('education');
+        companyName = 'GEORGE STEUART EDUCATION (PVT) LTD';
     }
-    if (lower.includes('tea')) {
-        return 'GEORGE STEUART TEAS (PVT) LTD';
+    // 5. Laboratories
+    else if (email.endsWith('@gslabs.lk') || allText.includes('laboratories') || allText.includes('labs')) {
+        subId = findSub('laboratories', 'labs') || findSub('health');
+        companyName = 'GEORGE STEUART LABORATORIES (PVT) LTD';
     }
-    if (lower.includes('health')) {
-        return 'GEORGE STEUART HEALTH (PVT) LTD';
+    // 6. Ethicals
+    else if (email.endsWith('@gsethicals.lk') || allText.includes('ethicals')) {
+        subId = findSub('ethicals') || findSub('health');
+        companyName = 'GEORGE STEUART ETHICALS (PVT) LTD';
     }
-    if (lower.includes('investments')) {
-        return 'GEORGE STEUART INVESTMENTS (PVT) LTD';
+    // 7. Health & Pharma
+    else if (email.endsWith('@gshealth.lk') || email.endsWith('@gspharma.lk') || allText.includes('health') || allText.includes('pharma')) {
+        subId = findSub('health');
+        companyName = 'GEORGE STEUART HEALTH (PVT) LTD';
     }
-    if (lower.includes('recruitment')) {
-        return 'GEORGE STEUART RECRUITMENT (PVT) LTD';
+    // 8. Consumer & FMCG
+    else if (email.endsWith('@gsconsumer.lk') || email.endsWith('@serinaturals.com') || allText.includes('consumer') || allText.includes('fmcg')) {
+        subId = findSub('consumer');
+        companyName = 'GEORGE STEUART CONSUMER (PVT) LTD';
     }
-    if (lower.includes('solutions')) {
-        return 'GEORGE STEUART SOLUTIONS (PVT) LTD';
+    // 9. Steuart Holidays
+    else if (email.endsWith('@steuartholidays.com') || allText.includes('holiday')) {
+        subId = findSub('holiday') || findSub('travel');
+        companyName = 'STEUART HOLIDAYS';
     }
-    if (lower.includes('optimize')) {
-        return 'GEORGE STEUART OPTIMIZE (PVT) LTD';
+    // 10. Travels
+    else if (email.endsWith('@gstravels.lk') || allText.includes('travel')) {
+        subId = findSub('travel');
+        companyName = 'GEORGE STEUART TRAVELS (PVT) LTD';
     }
-    
-    return cleaned.toUpperCase();
+    // 11. Insurance
+    else if (email.endsWith('@gsinsurance.lk') || allText.includes('insurance')) {
+        subId = findSub('insurance brokers', 'insurance');
+        companyName = 'GEORGE STEUART INSURANCE BROKERS (PVT) LTD';
+    }
+    // 12. Heladiv / HVA Foods
+    else if (email.endsWith('@heladiv.com') || email.endsWith('@heladiv.lk') || allText.includes('heladiv') || allText.includes('hva foods')) {
+        subId = findSub('heladiv', 'hva');
+        companyName = 'HVA FOODS PLC';
+    }
+    // 13. Teas
+    else if (email.endsWith('@gsteas.lk') || (allText.includes('tea') && !allText.includes('heladiv'))) {
+        subId = findSub('teas', 'tea');
+        companyName = 'GEORGE STEUART TEAS (PVT) LTD';
+    }
+    // 14. Solutions & Engineering
+    else if (email.endsWith('@gssolutions.lk') || allText.includes('solutions') || allText.includes('engineering')) {
+        subId = findSub('solutions');
+        companyName = 'GEORGE STEUART SOLUTIONS (PVT) LTD';
+    }
+    // 15. Aviation
+    else if (email.endsWith('@gsaviation.lk') || allText.includes('aviation')) {
+        subId = findSub('aviation');
+        companyName = 'GEORGE STEUART AVIATION (PVT) LTD';
+    }
+    // 16. Recruitment
+    else if (email.endsWith('@gsrecruitment.lk') || allText.includes('recruitment')) {
+        subId = findSub('recruitment');
+        companyName = 'GEORGE STEUART RECRUITMENT (PVT) LTD';
+    }
+    // 17. Asset Management
+    else if (email.endsWith('@gsasset.lk') || email.endsWith('@gsam.lk') || allText.includes('asset management')) {
+        subId = findSub('asset');
+        companyName = 'GEORGE STEUART ASSET MANAGEMENT (PVT) LTD';
+    }
+    // 18. Investments
+    else if (allText.includes('investments') || allText.includes('invest')) {
+        subId = findSub('invest');
+        companyName = 'GEORGE STEUART INVESTMENTS (PVT) LTD';
+    }
+    // 19. Citrus
+    else if (email.endsWith('@citrusleisure.com') || allText.includes('citrus')) {
+        subId = findSub('citrus');
+        companyName = 'CITRUS LEISURE';
+    }
+    // 20. Holding & Parent Group
+    else if (email.endsWith('@georgesteuart.lk') || allText.includes('george steuart &') || allText.includes('george steuart group')) {
+        subId = findSub('& co', 'holding', 'company ltd');
+        companyName = 'GEORGE STEUART & COMPANY LTD';
+    }
+
+    // Dynamic fallback matching against existing subsidiaries
+    if (!subId && company) {
+        const found = existingSubs.find(s => 
+            s.name.toLowerCase().trim() === company.toLowerCase().trim() ||
+            company.toLowerCase().includes(s.name.toLowerCase()) ||
+            s.name.toLowerCase().includes(company.toLowerCase())
+        );
+        if (found) {
+            subId = found.id;
+            companyName = found.name;
+        }
+    }
+
+    // Clean department string so it does not repeat company name
+    let finalDept = dept || company || 'General';
+    const deptLower = finalDept.toLowerCase();
+    if (deptLower.includes('(pvt) ltd') || deptLower.includes('ltd') || deptLower.includes('plc') || deptLower === 'office 365' || !dept) {
+        if (subId === findSub('optimize')) finalDept = 'Technology & IT Services';
+        else if (subId === findSub('seregen')) finalDept = 'Formulation & Manufacturing';
+        else if (subId === findSub('divasa')) finalDept = 'Therapeutics & Marketing';
+        else if (subId === findSub('education')) finalDept = 'Advisory & Pathways';
+        else if (subId === findSub('laboratories', 'labs')) finalDept = 'Diagnostics & Laboratory';
+        else if (subId === findSub('ethicals')) finalDept = 'Ethical Pharmaceuticals';
+        else if (subId === findSub('health')) finalDept = 'Healthcare Operations';
+        else if (subId === findSub('consumer')) finalDept = 'Consumer & Retail';
+        else if (subId === findSub('travel')) finalDept = 'Travel Services';
+        else if (subId === findSub('holiday')) finalDept = 'Inbound Holidays';
+        else if (subId === findSub('insurance')) finalDept = 'Insurance Brokerage';
+        else if (subId === findSub('& co')) finalDept = 'Corporate Office';
+        else if (subId === findSub('heladiv')) finalDept = 'Operations & Production';
+        else if (subId === findSub('tea')) finalDept = 'Tea Operations';
+        else if (subId === findSub('solutions')) finalDept = 'Industrial & Climate Solutions';
+        else if (subId === findSub('aviation')) finalDept = 'Aviation Services';
+        else if (subId === findSub('recruitment')) finalDept = 'Recruitment & Manpower';
+        else if (subId === findSub('asset')) finalDept = 'Asset Management';
+        else if (subId === findSub('invest')) finalDept = 'Money Market & Forex';
+        else if (subId === findSub('citrus')) finalDept = 'Hospitality & Leisure';
+        else finalDept = 'General';
+    }
+
+    return { subId, companyName, department: finalDept };
 }
 
 // Get Manually Added Users from local database
 router.get('/manual', async (req, res) => {
+    const { subsidiaryId } = req.query;
     try {
-        const query = `
+        let query = `
             SELECT u.id, u.full_name, u.email, u.role, u.department, u.job_title, u.phone, u.profile_pic, u.bio, u.subsidiary_id, s.name as subsidiary_name 
             FROM users u 
             LEFT JOIN subsidiaries s ON u.subsidiary_id = s.id 
             WHERE u.is_active = TRUE AND (u.is_synced = FALSE OR u.is_synced IS NULL)
-            ORDER BY u.full_name ASC
         `;
-        const [rows] = await db.execute(query);
+        let params = [];
+        if (subsidiaryId) {
+            query += ' AND u.subsidiary_id = ?';
+            params.push(subsidiaryId);
+        }
+        query += ' ORDER BY u.full_name ASC';
+        const [rows] = await db.execute(query, params);
         res.json(rows);
     } catch (err) {
         console.error(err);
@@ -147,15 +281,21 @@ router.get('/manual', async (req, res) => {
 
 // Get Microsoft Office 365 Users from local database
 router.get('/office365', async (req, res) => {
+    const { subsidiaryId } = req.query;
     try {
-        const query = `
+        let query = `
             SELECT u.id, u.full_name, u.email, u.role, u.department, u.job_title, u.phone, u.profile_pic, u.bio, u.subsidiary_id, COALESCE(u.o365_company, s.name) as subsidiary_name 
             FROM users u 
             LEFT JOIN subsidiaries s ON u.subsidiary_id = s.id 
             WHERE u.is_active = TRUE AND u.is_synced = TRUE
-            ORDER BY u.full_name ASC
         `;
-        const [rows] = await db.execute(query);
+        let params = [];
+        if (subsidiaryId) {
+            query += ' AND u.subsidiary_id = ?';
+            params.push(subsidiaryId);
+        }
+        query += ' ORDER BY u.full_name ASC';
+        const [rows] = await db.execute(query, params);
         res.json(rows);
     } catch (err) {
         console.error(err);
@@ -163,13 +303,12 @@ router.get('/office365', async (req, res) => {
     }
 });
 
-// Sync Microsoft Office 365 Users to local database
+// Sync Microsoft Office 365 Users (Supports both Full Sync and Subsidiary-specific Sync for Subadmins)
 router.post('/office365/sync', async (req, res) => {
+    const { subsidiary_id, role } = req.body;
     try {
-        // 1. Get Access Token
         const accessToken = await getAccessToken();
 
-        // 2. Fetch all Graph Users
         console.log('Sync: Querying Graph API users...');
         let graphUsers = [];
         let nextLink = `https://graph.microsoft.com/v1.0/users?$select=id,displayName,mail,userPrincipalName,jobTitle,department,mobilePhone,businessPhones,companyName&$top=999`;
@@ -186,41 +325,26 @@ router.post('/office365/sync', async (req, res) => {
             nextLink = usersRes.data['@odata.nextLink'] || null;
         }
 
-        console.log(`Sync: Retrieved ${graphUsers.length} users from Graph API.`);
-
-        // 3. Sync subsidiaries table
-        // Find distinct normalized company names from incoming Graph users
-        const distinctCompanies = [...new Set(graphUsers.map(u => normalizeCompany(u.department)).filter(Boolean))];
-        console.log(`Sync: Found ${distinctCompanies.length} distinct companies in M365 payload.`);
+        console.log(`Sync: Retrieved ${graphUsers.length} total users from Graph API.`);
 
         // Load existing subsidiaries
         const [existingSubs] = await db.execute("SELECT id, name FROM subsidiaries");
         const subMapByName = new Map(existingSubs.map(s => [s.name.trim().toLowerCase(), s.id]));
 
-        // Process distinct companies: insert if not present
-        for (const companyName of distinctCompanies) {
-            const compKey = companyName.trim().toLowerCase();
-            if (!subMapByName.has(compKey)) {
-                console.log(`Sync: Inserting new subsidiary: "${companyName}"`);
-                const [insSub] = await db.execute(
-                    `INSERT INTO subsidiaries 
-                     (name, description, mission, vision, location, website, email, phone, employees) 
-                     VALUES (?, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0)`,
-                    [companyName]
-                );
-                subMapByName.set(compKey, insSub.insertId);
-            }
+        // Determine if this is a subsidiary-scoped sync (e.g. subadmin) or full sync (superadmin/groupadmin)
+        let targetSub = null;
+        if (subsidiary_id) {
+            targetSub = existingSubs.find(s => Number(s.id) === Number(subsidiary_id));
         }
 
-        // 4. Load existing database users
-        const [dbUsers] = await db.execute("SELECT id, email, is_synced, ignore_sync, is_active FROM users");
+        // Load existing database users
+        const [dbUsers] = await db.execute("SELECT id, email, is_synced, ignore_sync, is_active, subsidiary_id FROM users");
         const dbUserMap = new Map(dbUsers.map(u => [u.email.toLowerCase(), u]));
 
-        // Hash default password for new entries
         const defaultPasswordHash = await bcrypt.hash('GS@2026', 10);
-        const apiEmails = new Set();
+        let syncedCount = 0;
+        let apiEmails = new Set();
 
-        // 5. Process each Graph user
         for (const u of graphUsers) {
             const email = (u.mail || u.userPrincipalName || '').trim().toLowerCase();
             if (!email || email === 'n/a') continue;
@@ -228,24 +352,60 @@ router.post('/office365/sync', async (req, res) => {
             apiEmails.add(email);
 
             const phoneVal = u.mobilePhone || (Array.isArray(u.businessPhones) && u.businessPhones[0]) || 'N/A';
-            const normalizedSubName = normalizeCompany(u.department);
-            
-            // Map subsidiary_id dynamically to the matched database ID
-            const subId = subMapByName.get(normalizedSubName.trim().toLowerCase()) || null;
-            
-            const deptVal = u.companyName ? u.companyName.trim() : 'Office 365';
+            const { subId: detectedSubId, companyName: normalizedSubName, department: deptVal } = resolveSubsidiaryAndDepartment(u, existingSubs);
+            let subId = detectedSubId;
+
+            // Auto-create newly detected subsidiary from Azure AD if not yet in database
+            if (!subId && normalizedSubName && !['GEORGE STEUART GROUP', 'OFFICE 365', 'GENERAL'].includes(normalizedSubName.toUpperCase())) {
+                let foundSub = existingSubs.find(s => s.name.toLowerCase() === normalizedSubName.toLowerCase());
+                if (!foundSub) {
+                    try {
+                        const [newSubRes] = await db.execute(
+                            "INSERT INTO subsidiaries (name, category, status, employees) VALUES (?, 'General', 'Active', 0)",
+                            [normalizedSubName]
+                        );
+                        foundSub = { id: newSubRes.insertId, name: normalizedSubName };
+                        existingSubs.push(foundSub);
+                        console.log(`Auto-created new subsidiary from Azure AD: ${normalizedSubName} (ID: ${foundSub.id})`);
+                    } catch (e) {
+                        console.error('Failed to auto-create subsidiary:', e.message);
+                    }
+                }
+                if (foundSub) {
+                    subId = foundSub.id;
+                }
+            }
+
+            if (!subId) {
+                // Fallback to parent company George Steuart & Co.
+                subId = 1;
+            }
             const jobVal = u.jobTitle || 'O365 Account';
             const fullName = u.displayName || 'Unnamed User';
+
+            // If a specific subsidiary sync was requested:
+            if (targetSub) {
+                // Check if user belongs to this subsidiary
+                const matchesDept = (u.department || '').toLowerCase().includes(targetSub.name.toLowerCase().replace(/[^a-z0-9]/g, '')) ||
+                                    (u.companyName || '').toLowerCase().includes(targetSub.name.toLowerCase().replace(/[^a-z0-9]/g, '')) ||
+                                    normalizedSubName.toLowerCase().includes(targetSub.name.toLowerCase());
+                
+                if (!matchesDept && subId !== targetSub.id) {
+                    continue; // Skip users outside this subsidiary
+                }
+                subId = targetSub.id;
+            }
 
             if (dbUserMap.has(email)) {
                 // Update existing user
                 const existing = dbUserMap.get(email);
                 await db.execute(
                     `UPDATE users 
-                     SET full_name = ?, phone = ?, subsidiary_id = ?, o365_company = ?, department = ?, job_title = ?, is_active = TRUE, is_synced = TRUE 
+                     SET full_name = ?, phone = ?, subsidiary_id = COALESCE(?, subsidiary_id), o365_company = ?, department = ?, job_title = ?, is_active = TRUE, is_synced = TRUE 
                      WHERE id = ?`,
                     [fullName, phoneVal, subId, normalizedSubName, deptVal, jobVal, existing.id]
                 );
+                syncedCount++;
             } else {
                 // Insert new user (default role: 'employee')
                 await db.execute(
@@ -254,34 +414,25 @@ router.post('/office365/sync', async (req, res) => {
                      VALUES (?, ?, ?, 'employee', ?, ?, ?, ?, ?, TRUE, TRUE, FALSE, TRUE)`,
                     [fullName, email, defaultPasswordHash, subId, normalizedSubName, deptVal, jobVal, phoneVal]
                 );
+                syncedCount++;
             }
         }
 
-        // 6. Deactivate database users that are marked as synced but NOT in the API response
-        // and ignore_sync is FALSE
-        let deactivatedCount = 0;
-        for (const dbUser of dbUsers) {
-            const dbEmailLower = dbUser.email.toLowerCase();
-            if (dbUser.is_synced && !dbUser.ignore_sync && !apiEmails.has(dbEmailLower)) {
-                if (dbUser.is_active) {
-                    await db.execute("UPDATE users SET is_active = FALSE WHERE id = ?", [dbUser.id]);
-                    deactivatedCount++;
-                }
-            }
-        }
-
-        // 7. Update employee count in subsidiaries table for all active users
+        // Update employee counts in subsidiaries table
         const [updatedSubs] = await db.execute("SELECT id FROM subsidiaries");
         for (const s of updatedSubs) {
             const [countRes] = await db.execute("SELECT COUNT(*) as count FROM users WHERE subsidiary_id = ? AND is_active = TRUE", [s.id]);
             await db.execute("UPDATE subsidiaries SET employees = ? WHERE id = ?", [countRes[0].count, s.id]);
         }
 
+        const msg = targetSub
+            ? `Successfully synchronized ${syncedCount} Azure Active Directory profiles for ${targetSub.name}!`
+            : `Global Synchronization successful! Synced ${syncedCount} profiles across all subsidiaries.`;
+
         res.json({
             success: true,
-            message: `Synchronization successful! Synced ${graphUsers.length} profiles. Deactivated ${deactivatedCount} unmatched profiles. Subsidiaries updated dynamically.`,
-            apiCount: graphUsers.length,
-            deactivatedCount: deactivatedCount
+            message: msg,
+            syncedCount
         });
 
     } catch (err) {
@@ -365,10 +516,9 @@ router.get('/office365/photo/:email', async (req, res) => {
             }
         );
         res.setHeader('Content-Type', response.headers['content-type'] || 'image/jpeg');
-        res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+        res.setHeader('Cache-Control', 'public, max-age=86400');
         return res.send(response.data);
     } catch (err) {
-        // Fallback: Check if user exists to redirect to ui-avatars.com using name, or just use email
         try {
             const [rows] = await db.execute('SELECT full_name FROM users WHERE email = ?', [email]);
             const name = rows.length > 0 ? rows[0].full_name : email;
@@ -401,7 +551,7 @@ router.get('/:id', async (req, res) => {
     }
 });
 
-// Add a new user
+// Add a new user (Manual Add by SuperAdmin, GroupAdmin, or SubAdmin)
 router.post('/', async (req, res) => {
     const { 
         full_name, 
@@ -414,7 +564,9 @@ router.post('/', async (req, res) => {
         phone, 
         nic_number, 
         employee_no, 
-        date_of_birth 
+        date_of_birth,
+        creator_role,
+        creator_subsidiary_id
     } = req.body;
     
     try {
@@ -424,16 +576,34 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ message: 'User with this email already exists' });
         }
 
-        const hashedPassword = await bcrypt.hash(password, 10);
+        let assignedRole = normalizeRole(role);
+        let assignedSubId = subsidiary_id && subsidiary_id !== '' ? subsidiary_id : null;
+
+        const activeCreatorRole = creator_role || req.body.author_role || req.body.role;
+        const activeCreatorSubId = creator_subsidiary_id !== undefined ? creator_subsidiary_id : req.body.user_subsidiary_id;
+
+        // Subadmin restrictions:
+        if (isSubAdmin(activeCreatorRole)) {
+            // Locked to subadmin's subsidiary
+            assignedSubId = activeCreatorSubId;
+            // Subadmin can only add standard employees
+            assignedRole = 'employee';
+        } else if (!isSuperOrGroupAdmin(activeCreatorRole)) {
+            return res.status(403).json({ message: 'Not authorized to add employees' });
+        }
+
+        const hashedPassword = await bcrypt.hash(password || 'GS@2026', 10);
         
         const [result] = await db.execute(
-            'INSERT INTO users (full_name, email, password, role, subsidiary_id, department, job_title, phone, nic_number, employee_no, date_of_birth) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            `INSERT INTO users 
+             (full_name, email, password, role, subsidiary_id, department, job_title, phone, nic_number, employee_no, date_of_birth, is_active, is_synced, ignore_sync, needs_password_change) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, FALSE, TRUE, TRUE)`,
             [
                 full_name || null, 
                 email || null, 
                 hashedPassword, 
-                role || 'employee', 
-                subsidiary_id && subsidiary_id !== '' ? subsidiary_id : null, 
+                assignedRole, 
+                assignedSubId, 
                 department || null, 
                 job_title || null, 
                 phone || null, 
@@ -443,7 +613,13 @@ router.post('/', async (req, res) => {
             ]
         );
 
-        res.status(201).json({ id: result.insertId, message: 'User created successfully' });
+        // Update employee count for this subsidiary
+        if (assignedSubId) {
+            const [countRes] = await db.execute("SELECT COUNT(*) as count FROM users WHERE subsidiary_id = ? AND is_active = TRUE", [assignedSubId]);
+            await db.execute("UPDATE subsidiaries SET employees = ? WHERE id = ?", [countRes[0].count, assignedSubId]);
+        }
+
+        res.status(201).json({ id: result.insertId, message: 'Employee created successfully' });
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Server error' });
@@ -459,7 +635,6 @@ router.put('/profile/:id', async (req, res) => {
             [full_name, email, phone, bio, profile_pic || null, job_title || 'Employee', req.params.id]
         );
         
-        // Fetch the updated user details so we can return them to the frontend to refresh state
         const [updatedRows] = await db.execute(`
             SELECT u.id, u.full_name, u.email, u.role, u.department, u.job_title, u.phone, u.profile_pic, u.bio, u.subsidiary_id, s.name as subsidiary_name 
             FROM users u 
@@ -477,14 +652,48 @@ router.put('/profile/:id', async (req, res) => {
     }
 });
 
-// Update a user (admin)
+// Update a user (admin action)
 router.put('/:id', async (req, res) => {
-    const { full_name, email, role, subsidiary_id, department, job_title, phone, date_of_birth, nic_number, employee_no } = req.body;
+    const { 
+        full_name, 
+        email, 
+        role, 
+        subsidiary_id, 
+        department, 
+        job_title, 
+        phone, 
+        date_of_birth, 
+        nic_number, 
+        employee_no,
+        creator_role,
+        creator_subsidiary_id
+    } = req.body;
+
     try {
+        const [targetUserRows] = await db.execute('SELECT * FROM users WHERE id = ?', [req.params.id]);
+        if (targetUserRows.length === 0) return res.status(404).json({ message: 'User not found' });
+        const targetUser = targetUserRows[0];
+
+        let assignedRole = role ? normalizeRole(role) : targetUser.role;
+        let assignedSubId = subsidiary_id !== undefined ? (subsidiary_id || null) : targetUser.subsidiary_id;
+
+        // Subadmin validation
+        if (isSubAdmin(creator_role)) {
+            if (Number(targetUser.subsidiary_id) !== Number(creator_subsidiary_id)) {
+                return res.status(403).json({ message: 'Not authorized to edit employee from another subsidiary' });
+            }
+            assignedSubId = creator_subsidiary_id; // locked
+            // Subadmin cannot promote to superadmin or groupadmin
+            if (assignedRole === 'superadmin' || assignedRole === 'groupadmin') {
+                assignedRole = 'employee';
+            }
+        }
+
         await db.execute(
             'UPDATE users SET full_name=?, email=?, role=?, subsidiary_id=?, department=?, job_title=?, phone=?, date_of_birth=?, nic_number=?, employee_no=? WHERE id=?',
-            [full_name, email, role, subsidiary_id || null, department, job_title, phone, date_of_birth || null, nic_number || null, employee_no || null, req.params.id]
+            [full_name, email, assignedRole, assignedSubId, department, job_title, phone, date_of_birth || null, nic_number || null, employee_no || null, req.params.id]
         );
+
         res.json({ message: 'User updated successfully' });
     } catch (err) {
         console.error(err);
@@ -494,7 +703,18 @@ router.put('/:id', async (req, res) => {
 
 // Deactivate (soft delete) a user
 router.delete('/:id', async (req, res) => {
+    const { creator_role, creator_subsidiary_id } = req.query;
     try {
+        const [targetUserRows] = await db.execute('SELECT * FROM users WHERE id = ?', [req.params.id]);
+        if (targetUserRows.length === 0) return res.status(404).json({ message: 'User not found' });
+        const targetUser = targetUserRows[0];
+
+        if (isSubAdmin(creator_role)) {
+            if (Number(targetUser.subsidiary_id) !== Number(creator_subsidiary_id)) {
+                return res.status(403).json({ message: 'Not authorized to deactivate employee from another subsidiary' });
+            }
+        }
+
         await db.execute('UPDATE users SET is_active = FALSE WHERE id = ?', [req.params.id]);
         res.json({ message: 'User deactivated successfully' });
     } catch (err) {
@@ -505,8 +725,18 @@ router.delete('/:id', async (req, res) => {
 
 // Reset password (admin sets temp password)
 router.patch('/:id/reset-password', async (req, res) => {
-    const { newPassword } = req.body;
+    const { newPassword, creator_role, creator_subsidiary_id } = req.body;
     try {
+        const [targetUserRows] = await db.execute('SELECT * FROM users WHERE id = ?', [req.params.id]);
+        if (targetUserRows.length === 0) return res.status(404).json({ message: 'User not found' });
+        const targetUser = targetUserRows[0];
+
+        if (isSubAdmin(creator_role)) {
+            if (Number(targetUser.subsidiary_id) !== Number(creator_subsidiary_id)) {
+                return res.status(403).json({ message: 'Not authorized to reset password for employee from another subsidiary' });
+            }
+        }
+
         const hashedPassword = await bcrypt.hash(newPassword || 'GS@2026', 10);
         await db.execute(
             'UPDATE users SET password=?, needs_password_change=TRUE WHERE id=?',
@@ -520,4 +750,3 @@ router.patch('/:id/reset-password', async (req, res) => {
 });
 
 module.exports = router;
-

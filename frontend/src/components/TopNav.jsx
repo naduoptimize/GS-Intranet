@@ -64,13 +64,13 @@ const TopNav = () => {
   const getNotifDetails = (type) => {
     switch (type) {
       case 'announcement':
-        return { title: 'Group Announcement', icon: Volume2, color: 'text-[#C8102E] bg-red-50' };
+        return { title: 'Group Announcement', icon: Volume2, color: 'text-[#C41230] bg-red-50' };
       case 'document':
         return { title: 'New Document Uploaded', icon: FileText, color: 'text-blue-600 bg-blue-50' };
       case 'security':
         return { title: 'Security Sync Complete', icon: ShieldCheck, color: 'text-green-600 bg-green-50' };
       default:
-        return { title: 'Notification', icon: Bell, color: 'text-[#C8102E] bg-red-50/10' };
+        return { title: 'Notification', icon: Bell, color: 'text-[#C41230] bg-red-50/10' };
     }
   };
 
@@ -249,7 +249,7 @@ const TopNav = () => {
     { id: 'msg', title: 'Go to Direct Messages', category: 'Navigation', shortcut: '↵', action: () => navigate('/messages') },
     { id: 'news', title: 'Go to Media Center', category: 'Navigation', shortcut: '↵', action: () => navigate('/news') },
     { id: 'mems', title: 'Go to Memories Wall', category: 'Navigation', shortcut: '↵', action: () => navigate('/memories') },
-    { id: 'help', title: 'Go to Help & Support', category: 'Navigation', shortcut: '↵', action: () => navigate('/help') },
+    { id: 'alerts', title: 'Go to Company Feed', category: 'Navigation', shortcut: '↵', action: () => navigate('/feed') },
     { id: 'settings', title: 'Go to Settings & Profile', category: 'Navigation', shortcut: '↵', action: () => navigate('/settings') },
     { id: 'theme', title: `Switch to ${theme === 'Dark' ? 'Light' : 'Dark'} Theme`, category: 'Actions', shortcut: 'T', action: () => handleThemeToggle() },
     { id: 'logout', title: 'Sign Out / Log Out', category: 'Actions', shortcut: 'Q', action: () => { logout(); setIsPaletteOpen(false); } },
@@ -303,34 +303,32 @@ const TopNav = () => {
   };
 
   return (
-    <header className="hidden lg:flex h-24 bg-white/70 backdrop-blur-xl sticky top-0 z-40 px-10 items-center justify-between border-b border-slate-100 shadow-[0_1px_3px_rgba(0,0,0,0.01)]">
-      {/* Search Bar */}
-      <div className="relative w-full max-w-[420px] group">
-        <span className="absolute inset-y-0 left-0 pl-5 flex items-center text-slate-350 group-focus-within:text-[#C8102E] transition-colors duration-300">
-          <Search className="w-4.5 h-4.5" />
-        </span>
-        <input 
-          type="text" 
-          placeholder="Search resources, directories, colleagues... (Ctrl K)"
-          onClick={() => setIsPaletteOpen(true)}
-          onFocus={(e) => { e.target.blur(); setIsPaletteOpen(true); }}
-          readOnly
-          className="w-full pl-13 pr-16 py-3 bg-slate-50/60 border border-transparent hover:border-[#C8102E]/10 focus:border-[#C8102E]/10 focus:bg-white focus:ring-4 focus:ring-[#C8102E]/5 rounded-2xl transition-all duration-300 text-xs font-semibold placeholder:text-slate-300 shadow-inner text-slate-805 outline-none cursor-pointer"
-        />
-        <span className="absolute inset-y-0 right-4 flex items-center pointer-events-none">
-          <kbd className="hidden sm:inline-block text-[9px] font-black text-slate-400 bg-slate-200/50 border border-slate-300/30 px-2 py-0.5 rounded-md">Ctrl K</kbd>
-        </span>
-      </div>
+    <header className="hidden lg:flex h-16 bg-white/70 dark:bg-[#0B0F19]/70 backdrop-blur-md sticky top-0 z-40 border-b border-slate-100/80 dark:border-white/5 transition-all">
+      <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 flex items-center justify-between">
+        {/* Search Bar */}
+        <div className="relative w-full max-w-[340px] sm:max-w-[360px] group">
+          <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 group-focus-within:text-[#C41230] transition-colors duration-300">
+            <Search className="w-4 h-4" />
+          </span>
+          <input 
+            type="text" 
+            placeholder="Search posts, employees, departments..."
+            onClick={() => setIsPaletteOpen(true)}
+            onFocus={(e) => { e.target.blur(); setIsPaletteOpen(true); }}
+            readOnly
+            className="w-full pl-10 pr-4 py-2 bg-white dark:bg-[#131B2E] border border-slate-200/80 dark:border-white/10 rounded-2xl transition-all duration-300 text-xs font-medium placeholder:text-slate-400 shadow-sm text-slate-700 dark:text-white outline-none cursor-pointer hover:border-slate-300 focus:border-[#C41230]/20"
+          />
+        </div>
 
-      {/* Right Actions */}
-      <div className="flex items-center gap-6">
-        {/* Notifications & Messages */}
+        {/* Right Actions */}
         <div className="flex items-center gap-3">
+        {/* Notifications & Messages */}
+        <div className="flex items-center gap-1.5">
           
           {/* Instant Theme Toggle Button */}
           <button 
             onClick={handleThemeToggle}
-            className="w-10 h-10 flex items-center justify-center rounded-xl bg-white text-slate-400 hover:text-[#C8102E] hover:bg-[#C8102E]/5 border border-slate-100/50 hover:border-[#C8102E]/10 shadow-sm transition-all group cursor-pointer relative"
+            className="w-8.5 h-8.5 flex items-center justify-center rounded-lg bg-white text-slate-400 hover:text-[#C41230] hover:bg-[#C41230]/5 border border-slate-100 hover:border-[#C41230]/10 shadow-sm transition-all group cursor-pointer relative"
             title={`Switch to ${theme === 'Dark' ? 'Light' : 'Dark'} theme`}
           >
             <AnimatePresence mode="wait" initial={false}>
@@ -342,7 +340,7 @@ const TopNav = () => {
                   exit={{ rotate: 45, opacity: 0 }}
                   transition={{ duration: 0.15 }}
                 >
-                  <Sun className="w-4.5 h-4.5 text-amber-500 group-hover:scale-105 transition-transform" />
+                  <Sun className="w-4 h-4 text-amber-500 group-hover:scale-105 transition-transform" />
                 </motion.div>
               ) : (
                 <motion.div
@@ -352,7 +350,7 @@ const TopNav = () => {
                   exit={{ rotate: 45, opacity: 0 }}
                   transition={{ duration: 0.15 }}
                 >
-                  <Moon className="w-4.5 h-4.5 text-indigo-500 group-hover:scale-105 transition-transform" />
+                  <Moon className="w-4 h-4 text-indigo-500 group-hover:scale-105 transition-transform" />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -366,15 +364,15 @@ const TopNav = () => {
                 setIsMessagesOpen(false);
                 setIsDropdownOpen(false);
               }}
-              className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all relative group shadow-sm border ${
+              className={`w-8.5 h-8.5 flex items-center justify-center rounded-lg transition-all relative group shadow-sm border ${
                 isNotificationsOpen 
-                ? 'bg-[#C8102E]/10 border-[#C8102E]/20 text-[#C8102E]' 
-                : 'bg-white text-slate-400 hover:text-[#C8102E] hover:bg-[#C8102E]/5 border-slate-100/50 hover:border-[#C8102E]/10'
+                ? 'bg-[#C41230]/10 border-[#C41230]/20 text-[#C41230]'
+                : 'bg-white text-slate-400 hover:text-[#C41230] hover:bg-[#C41230]/5 border-slate-100 hover:border-[#C41230]/10'
               }`}
             >
-              <Bell className="w-4.5 h-4.5 group-hover:scale-105 transition-transform" />
+              <Bell className="w-4 h-4 group-hover:scale-105 transition-transform" />
               {unreadNotifCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4.5 h-4.5 bg-[#C8102E] text-white text-[9px] flex items-center justify-center rounded-full border border-white font-black shadow-md animate-pulse">
+                <span className="absolute -top-1 -right-1 w-4.5 h-4.5 bg-[#C41230] text-white text-[9px] flex items-center justify-center rounded-full border border-white font-black shadow-md animate-pulse">
                   {unreadNotifCount}
                 </span>
               )}
@@ -394,7 +392,7 @@ const TopNav = () => {
                     {unreadNotifCount > 0 && (
                       <button 
                         onClick={handleMarkAllNotifRead}
-                        className="text-[10px] font-black text-[#C8102E] hover:underline"
+                        className="text-[10px] font-black text-[#C41230] hover:underline"
                       >
                         Mark all read
                       </button>
@@ -430,7 +428,7 @@ const TopNav = () => {
                               <p className="text-[10px] text-slate-500 font-semibold line-clamp-2 mt-0.5">{notif.message}</p>
                             </div>
                             {!notif.is_read && (
-                              <span className="w-1.5 h-1.5 rounded-full bg-[#C8102E] shrink-0 mt-1.5 animate-pulse" />
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#C41230] shrink-0 mt-1.5 animate-pulse" />
                             )}
                           </button>
                         );
@@ -459,15 +457,15 @@ const TopNav = () => {
                 setIsNotificationsOpen(false);
                 setIsDropdownOpen(false);
               }}
-              className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all relative group shadow-sm border ${
+              className={`w-8.5 h-8.5 flex items-center justify-center rounded-lg transition-all relative group shadow-sm border ${
                 isMessagesOpen 
-                ? 'bg-[#C8102E]/10 border-[#C8102E]/20 text-[#C8102E]' 
-                : 'bg-white text-slate-400 hover:text-[#C8102E] hover:bg-[#C8102E]/5 border-slate-100/50 hover:border-[#C8102E]/10'
+                ? 'bg-[#C41230]/10 border-[#C41230]/20 text-[#C41230]'
+                : 'bg-white text-slate-400 hover:text-[#C41230] hover:bg-[#C41230]/5 border-slate-100 hover:border-[#C41230]/10'
               }`}
             >
-              <Mail className="w-4.5 h-4.5 group-hover:scale-105 transition-transform" />
+              <Mail className="w-4 h-4 group-hover:scale-105 transition-transform" />
               {unreadMsgCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4.5 h-4.5 bg-[#C8102E] text-white text-[9px] flex items-center justify-center rounded-full border border-white font-black shadow-md animate-pulse">
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#C41230] text-white text-[8px] flex items-center justify-center rounded-full border border-white font-black shadow-md animate-pulse">
                   {unreadMsgCount}
                 </span>
               )}
@@ -487,7 +485,7 @@ const TopNav = () => {
                     {unreadMsgCount > 0 && (
                       <button 
                         onClick={handleMarkAllMsgRead}
-                        className="text-[10px] font-black text-[#C8102E] hover:underline"
+                        className="text-[10px] font-black text-[#C41230] hover:underline"
                       >
                         Mark all read
                       </button>
@@ -513,7 +511,7 @@ const TopNav = () => {
                             {getProfilePicUrl(conv.profile_pic) ? (
                               <img src={getProfilePicUrl(conv.profile_pic)} alt={conv.full_name} className="w-full h-full object-cover" />
                             ) : (
-                              <div className="w-full h-full bg-gradient-to-br from-[#C8102E] to-[#8B001A] flex items-center justify-center text-white text-[10px] font-black uppercase">
+                              <div className="w-full h-full bg-gradient-to-br from-[#C41230] to-[#3D050C] flex items-center justify-center text-white text-[10px] font-black uppercase">
                                 {conv.full_name?.charAt(0) || 'U'}
                               </div>
                             )}
@@ -526,7 +524,7 @@ const TopNav = () => {
                             <p className="text-[10px] text-slate-500 font-semibold line-clamp-2 mt-0.5">{conv.last_message}</p>
                           </div>
                           {conv.unread_count > 0 && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#C8102E] shrink-0 mt-1.5 animate-pulse" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#C41230] shrink-0 mt-1.5 animate-pulse" />
                           )}
                         </button>
                       ))
@@ -548,37 +546,35 @@ const TopNav = () => {
 
         </div>
 
-        {/* Vertical Divider */}
-        <div className="h-8 w-px bg-gradient-to-b from-slate-100 via-slate-200 to-slate-100"></div>
-
         {/* Profile Dropdown Container */}
         <div className="relative" ref={dropdownRef}>
-          <div className="flex items-center gap-4">
-            <div className="text-right hidden xl:block">
-              <p className="text-xs font-black text-slate-800 leading-none">{user?.full_name || 'Guest'}</p>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mt-1">{user?.subsidiary_name || 'GEORGE STEUART'}</p>
+          <button 
+            onClick={() => {
+              setIsDropdownOpen(!isDropdownOpen);
+              setIsNotificationsOpen(false);
+              setIsMessagesOpen(false);
+            }}
+            className="flex items-center gap-2.5 py-1 px-1.5 hover:bg-white/60 rounded-xl transition-all group cursor-pointer text-left"
+          >
+            <div className="w-8 h-8 rounded-full overflow-hidden shadow-sm border border-slate-200 shrink-0 flex items-center justify-center bg-slate-100">
+               {user?.profile_pic ? (
+                 <img src={getProfilePicUrl(user?.profile_pic)} alt="Profile" className="w-full h-full object-cover" />
+               ) : (
+                 <span className="text-[#C41230] font-black text-xs uppercase">
+                   {user?.full_name ? user.full_name.split(' ').map(n => n[0]).join('').slice(0, 2) : 'GS'}
+                 </span>
+               )}
             </div>
-            
-            <button 
-              onClick={() => {
-                setIsDropdownOpen(!isDropdownOpen);
-                setIsNotificationsOpen(false);
-                setIsMessagesOpen(false);
-              }}
-              className="flex items-center gap-2 p-1 hover:bg-slate-50 border border-transparent hover:border-slate-100 rounded-xl transition-all group"
-            >
-              <div className="w-10 h-10 rounded-xl overflow-hidden shadow-md shadow-brand-red/10 border border-slate-100 group-hover:scale-105 transition-transform shrink-0 flex items-center justify-center bg-gradient-to-br from-[#C8102E] to-[#8B001A]">
-                 {user?.profile_pic ? (
-                   <img src={user.profile_pic} alt="Profile" className="w-full h-full object-cover" />
-                 ) : (
-                   <span className="text-white font-black text-xs uppercase">
-                     {user?.full_name ? user.full_name.split(' ').map(n => n[0]).join('').slice(0, 2) : 'GS'}
-                   </span>
-                 )}
-              </div>
-              <ChevronDown className={`w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-transform duration-300 ${isDropdownOpen ? 'rotate-180' : ''}`} />
-            </button>
-          </div>
+            <div className="hidden sm:block">
+              <p className="text-xs font-bold text-slate-800 leading-tight group-hover:text-[#C41230] transition-colors">
+                {user?.full_name || 'Ruwan Perera'}
+              </p>
+              <p className="text-[10px] font-medium text-slate-400 leading-none mt-0.5">
+                {user?.role === 'superadmin' ? 'Super Admin' : user?.role === 'groupadmin' ? 'Group Admin' : user?.role === 'subadmin' ? 'Sub Admin' : user?.job_title || 'Employee'}
+              </p>
+            </div>
+            <ChevronDown className={`w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
+          </button>
 
           {/* Real Interactive Floating Dropdown Menu */}
           <AnimatePresence>
@@ -594,7 +590,7 @@ const TopNav = () => {
                 <div className="px-4 py-3 bg-slate-50 rounded-xl mb-2 text-left">
                   <p className="text-xs font-black text-slate-850 truncate">{user?.full_name || 'Guest User'}</p>
                   <p className="text-[10px] text-slate-400 font-bold truncate mt-0.5">{user?.email || 'guest@georgesteuart.lk'}</p>
-                  <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-[#C8102E]/5 text-[#C8102E] text-[8px] font-black uppercase tracking-widest rounded-md mt-2">
+                  <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-[#C41230]/5 text-[#C41230] text-[8px] font-black uppercase tracking-widest rounded-md mt-2">
                     {user?.role || 'employee'}
                   </div>
                 </div>
@@ -609,11 +605,11 @@ const TopNav = () => {
                     My Profile
                   </button>
                   <button 
-                    onClick={() => { navigate('/help'); setIsDropdownOpen(false); }}
+                    onClick={() => { navigate('/feed'); setIsDropdownOpen(false); }}
                     className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[11px] font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all text-left"
                   >
-                    <HelpCircle className="w-4 h-4 text-slate-450" />
-                    Help & Support
+                    <ShieldCheck className="w-4 h-4 text-slate-450" />
+                    Alerts & Notices
                   </button>
                 </div>
 
@@ -635,6 +631,7 @@ const TopNav = () => {
             )}
           </AnimatePresence>
         </div>
+      </div>
       </div>
 
       {/* ── INTERACTIVE GLOBAL COMMAND PALETTE MODAL ── */}
@@ -719,7 +716,7 @@ const TopNav = () => {
                                     }}
                                     className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl transition-all text-left ${
                                       isSelected
-                                      ? 'bg-slate-50 dark:bg-slate-800/40 text-[#C8102E] dark:text-white border-l-4 border-l-[#C8102E] font-black shadow-sm'
+                                      ? 'bg-slate-50 dark:bg-slate-800/40 text-[#C41230] dark:text-white border-l-4 border-l-[#C41230] font-black shadow-sm'
                                       : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/10 text-slate-650 dark:text-slate-350 font-bold'
                                     }`}
                                   >
@@ -737,12 +734,12 @@ const TopNav = () => {
                                     onClick={() => handleEmployeeSelect(emp)}
                                     className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-all text-left ${
                                       isSelected
-                                      ? 'bg-slate-50 dark:bg-slate-800/40 text-slate-900 dark:text-white border-l-4 border-l-[#C8102E] font-black shadow-sm'
+                                      ? 'bg-slate-50 dark:bg-slate-800/40 text-slate-900 dark:text-white border-l-4 border-l-[#C41230] font-black shadow-sm'
                                       : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/10 text-slate-650 dark:text-slate-350 font-bold'
                                     }`}
                                   >
                                     <div className="flex items-center gap-3 min-w-0 pr-4">
-                                      <div className="w-7 h-7 rounded-lg overflow-hidden shrink-0 flex items-center justify-center bg-gradient-to-br from-[#C8102E] to-[#8B001A] shadow-sm">
+                                      <div className="w-7 h-7 rounded-lg overflow-hidden shrink-0 flex items-center justify-center bg-gradient-to-br from-[#C41230] to-[#3D050C] shadow-sm">
                                         {emp.profile_pic ? (
                                           <img
                                             src={emp.profile_pic.startsWith('http') ? emp.profile_pic : `http://localhost:5000/uploads/${emp.profile_pic}`}
@@ -762,7 +759,7 @@ const TopNav = () => {
                                         </p>
                                       </div>
                                     </div>
-                                    <span className="text-[8px] font-black text-[#C8102E]/80 dark:text-[#C8102E] uppercase tracking-widest px-2.5 py-1 rounded-md bg-[#C8102E]/5 dark:bg-[#C8102E]/10 shrink-0">
+                                    <span className="text-[8px] font-black text-[#C41230]/80 dark:text-[#C41230] uppercase tracking-widest px-2.5 py-1 rounded-md bg-[#C41230]/5 dark:bg-[#C41230]/10 shrink-0">
                                       Send Msg
                                     </span>
                                   </button>
@@ -793,7 +790,7 @@ const TopNav = () => {
                     Close
                   </span>
                 </div>
-                <div className="flex items-center gap-1 text-[8px] font-black text-[#C8102E] dark:text-[#C8102E] uppercase tracking-[2px]">
+                <div className="flex items-center gap-1 text-[8px] font-black text-[#C41230] dark:text-[#C41230] uppercase tracking-[2px]">
                   <span>GS Command Center</span>
                 </div>
               </div>

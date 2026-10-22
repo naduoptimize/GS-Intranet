@@ -58,7 +58,7 @@ const DocumentCenter = () => {
   }, [user]);
 
   const categories = [
-    { name: 'Policies', icon: ShieldCheck, color: '#C8102E', bg: 'bg-red-50' },
+    { name: 'Policies', icon: ShieldCheck, color: '#C41230', bg: 'bg-red-50' },
     { name: 'HR Documents', icon: FileText, color: '#6366f1', bg: 'bg-indigo-50' },
     { name: 'Insurance Forms', icon: HeartPulse, color: '#10b981', bg: 'bg-emerald-50' },
     { name: 'Travel Forms', icon: Plane, color: '#f59e0b', bg: 'bg-amber-50' },
@@ -79,7 +79,7 @@ const DocumentCenter = () => {
     <div className="min-h-screen bg-[#F8FAFC] pb-20">
 
       {/* SECTION 1 — IMMERSIVE HERO BANNER */}
-      <section className="relative h-[400px] mb-12 rounded-[40px] overflow-hidden group">
+      <section className="relative h-[300px] mb-8 rounded-3xl overflow-hidden group shadow-lg">
         <img
           src="/document.png"
           className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
@@ -90,7 +90,7 @@ const DocumentCenter = () => {
         />
         <div className="absolute inset-0 bg-gradient-to-r from-slate-900/80 via-slate-900/40 to-transparent" />
 
-        <div className="relative h-full flex flex-col justify-center px-12 max-w-4xl">
+        <div className="relative h-full flex flex-col justify-center px-8 max-w-3xl">
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -100,10 +100,10 @@ const DocumentCenter = () => {
               <div className="w-1.5 h-1.5 rounded-full bg-brand-red animate-pulse" />
               <span className="text-[10px] font-black text-brand-red uppercase tracking-[3px]">Knowledge Repository</span>
             </div>
-            <h1 className="text-6xl font-black text-white tracking-tighter mb-4">
+            <h1 className="text-4xl lg:text-5xl font-black text-white tracking-tighter mb-3">
               Document <span className="text-brand-red">Center</span>
             </h1>
-            <p className="text-lg text-white/70 font-medium max-w-xl mb-10 leading-relaxed">
+            <p className="text-sm lg:text-base text-white/75 font-medium max-w-xl mb-6 leading-relaxed">
               Access the complete library of George Steuart official forms, corporate policies, and administrative resources in one unified hub.
             </p>
 
@@ -114,7 +114,7 @@ const DocumentCenter = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Find a document, policy, or form..."
-                className="w-full pl-16 pr-6 py-5 bg-white shadow-2xl rounded-[24px] text-slate-800 font-medium focus:ring-4 focus:ring-brand-red/10 transition-all outline-none text-lg border-none"
+                className="w-full pl-14 pr-5 py-3.5 bg-white shadow-xl rounded-2xl text-slate-800 font-medium focus:ring-4 focus:ring-brand-red/10 transition-all outline-none text-sm border-none"
               />
             </div>
           </motion.div>
@@ -134,9 +134,9 @@ const DocumentCenter = () => {
       </section>
 
       {/* STATS COUNT GRID */}
-      <section className="mb-12 grid grid-cols-2 md:grid-cols-4 gap-6">
+      <section className="mb-8 grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-[#131B2E] border border-slate-100 dark:border-white/5 p-6 rounded-[28px] shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-[#C8102E]/10 flex items-center justify-center text-[#C8102E]">
+          <div className="w-12 h-12 rounded-2xl bg-[#C41230]/10 flex items-center justify-center text-[#C41230]">
             <Layers className="w-6 h-6" />
           </div>
           <div>
@@ -190,7 +190,7 @@ const DocumentCenter = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           {categories.map((cat, i) => (
             <motion.div
               key={cat.name}
@@ -199,10 +199,10 @@ const DocumentCenter = () => {
               transition={{ delay: i * 0.1 }}
               whileHover={{ y: -8, scale: 1.02 }}
               onClick={() => setSelectedCategory(cat.name)}
-              className={`relative bg-white border border-slate-100 p-8 rounded-[32px] flex flex-col items-center text-center cursor-pointer transition-all shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.06)] group ${selectedCategory === cat.name ? 'ring-2 ring-brand-red border-transparent' : ''}`}
+              className={`relative bg-white border border-slate-100 p-5 rounded-2xl flex flex-col items-center text-center cursor-pointer transition-all shadow-sm hover:shadow-lg group ${selectedCategory === cat.name ? 'ring-2 ring-brand-red border-transparent' : ''}`}
             >
-              <div className={`w-16 h-16 ${cat.bg} rounded-2xl flex items-center justify-center mb-6 group-hover:rotate-6 transition-transform shadow-sm`}>
-                <cat.icon className="w-8 h-8" style={{ color: cat.color }} />
+              <div className={`w-12 h-12 ${cat.bg} rounded-xl flex items-center justify-center mb-4 group-hover:rotate-6 transition-transform shadow-sm`}>
+                <cat.icon className="w-6 h-6" style={{ color: cat.color }} />
               </div>
               <h4 className="font-black text-slate-800 text-sm mb-2">{cat.name}</h4>
               <div className="flex items-center gap-2 text-[10px] text-slate-400 font-bold uppercase tracking-widest">
@@ -215,7 +215,7 @@ const DocumentCenter = () => {
       </section>
 
       {/* SECTION 3 — MAIN CONTENT AREA */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
         {/* LEFT COLUMN: DOCUMENT EXPLORER */}
         <section className="lg:col-span-8 space-y-6">
@@ -367,7 +367,7 @@ const DocumentCenter = () => {
 
                             {/* Card Body: Title & Category */}
                             <div className="space-y-1">
-                              <h4 className="font-black text-slate-800 dark:text-white group-hover:text-[#C8102E] transition-colors leading-snug line-clamp-2 text-base">
+                              <h4 className="font-black text-slate-800 dark:text-white group-hover:text-[#C41230] transition-colors leading-snug line-clamp-2 text-base">
                                 {doc.title}
                               </h4>
                               <p className="text-[9px] text-slate-450 font-black uppercase tracking-widest">{doc.category}</p>
@@ -376,7 +376,7 @@ const DocumentCenter = () => {
 
                           {/* Card Footer: Quick Actions */}
                           <div className="flex items-center justify-between pt-5 border-t border-slate-50 dark:border-white/5 mt-5">
-                            <span className="text-[8px] font-black text-[#C8102E]/70 uppercase tracking-widest flex items-center gap-1 group-hover:text-[#C8102E] transition-colors">
+                            <span className="text-[8px] font-black text-[#C41230]/70 uppercase tracking-widest flex items-center gap-1 group-hover:text-[#C41230] transition-colors">
                               Inspect File <ArrowUpRight className="w-3.5 h-3.5" />
                             </span>
                             <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
@@ -494,7 +494,7 @@ const DocumentCenter = () => {
               {/* Header */}
               <div className="p-8 border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#C8102E]/10 flex items-center justify-center text-[#C8102E]">
+                  <div className="w-10 h-10 rounded-xl bg-[#C41230]/10 flex items-center justify-center text-[#C41230]">
                     <FileText className="w-5 h-5" />
                   </div>
                   <div>

@@ -74,6 +74,175 @@ const alertIconMap = {
   error: AlertTriangle,
 };
 
+const PremiumDashboard = ({
+  user, alerts, offers, exchangeRates, fxUpdatedAt,
+  fxRefreshing, onRefreshRates, weatherData, weatherUpdatedAt,
+  weatherRefreshing, onRefreshWeather, navigate, onOpenNotes, noteCount
+}) => {
+  const safeAlerts = alerts?.length ? alerts : [
+    { id: 'maintenance', title: 'IT Maintenance Window', message: 'Scheduled server maintenance this Sunday from 10 PM to 2 AM.', type: 'warning', time: '4h ago' },
+    { id: 'leave', title: 'Leave Submission Deadline', message: 'Please submit pending leave requests before the monthly cut-off.', type: 'info', time: '1d ago' },
+    { id: 'security', title: 'Information Security Reminder', message: 'Never share passwords or verification codes with another person.', type: 'success', time: '2d ago' },
+  ];
+  const safeOffers = offers?.length ? offers.slice(0, 3) : [];
+  const [alertIndex, setAlertIndex] = React.useState(0);
+
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      setAlertIndex(index => (index + 1) % safeAlerts.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [safeAlerts.length]);
+
+  const activeAlert = safeAlerts[alertIndex] || safeAlerts[0];
+  const quickLinks = [
+    { label: 'Company Feed', sub: 'Latest company updates', icon: Rss, path: '/feed', tone: 'bg-rose-50 text-rose-600' },
+    { label: 'Employee Directory', sub: 'Find a colleague', icon: Users, path: '/directory', tone: 'bg-blue-50 text-blue-600' },
+    { label: 'Document Center', sub: 'Policies and forms', icon: FileText, path: '/documents', tone: 'bg-amber-50 text-amber-600' },
+    { label: 'Help & Support', sub: 'Create a support request', icon: MessageSquare, path: '/help', tone: 'bg-emerald-50 text-emerald-600' },
+  ];
+  const banks = [
+    { key: 'commercial', label: 'Commercial Bank', icon: BarChart3, tone: 'from-emerald-600 to-emerald-800', chip: 'bg-emerald-50 text-emerald-700' },
+    { key: 'seylan', label: 'Seylan Bank', icon: DollarSign, tone: 'from-violet-600 to-violet-800', chip: 'bg-violet-50 text-violet-700' },
+    { key: 'cbsl', label: 'CBSL', icon: Building2, tone: 'from-blue-600 to-blue-900', chip: 'bg-blue-50 text-blue-700' },
+  ];
+
+  return (
+    <div className="relative space-y-5 pb-14">
+      <div className="pointer-events-none absolute -left-24 top-32 h-72 w-72 rounded-full bg-brand-red/5 blur-3xl" />
+      <div className="pointer-events-none absolute -right-24 top-[420px] h-72 w-72 rounded-full bg-brand-gold/10 blur-3xl" />
+
+      <motion.section
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
+        className="group relative h-[220px] sm:h-[260px] lg:h-[295px] overflow-hidden rounded-[26px] border border-white/80 shadow-[0_24px_70px_-28px_rgba(15,23,42,0.48)]"
+      >
+        <motion.img
+          src="/dashboard-team-collaboration-v3.png"
+          alt="George Steuart colleagues collaborating in the group workspace"
+          className="absolute inset-0 h-full w-full object-cover object-[58%_center] sm:object-center"
+          loading="eager"
+          fetchPriority="high"
+          initial={{ scale: 1.045 }}
+          animate={{ scale: 1 }}
+          transition={{ duration: 1.4, ease: [0.22, 1, 0.36, 1] }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/88 via-slate-900/34 to-transparent" />
+        <motion.div
+          aria-hidden="true"
+          className="absolute inset-y-0 -left-1/3 w-1/3 skew-x-[-18deg] bg-gradient-to-r from-transparent via-white/12 to-transparent"
+          animate={{ x: ['0%', '430%'] }}
+          transition={{ duration: 2.2, delay: 0.8, ease: 'easeInOut' }}
+        />
+        <div className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-brand-gold via-brand-red to-brand-gold" />
+        <div className="relative h-full flex items-center px-7 lg:px-10">
+          <motion.div
+            initial={{ opacity: 0, x: -24 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.65, delay: 0.18, ease: [0.22, 1, 0.36, 1] }}
+            className="max-w-xl text-white"
+          >
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/20 backdrop-blur-xl mb-3 shadow-lg shadow-black/5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-[9px] font-black uppercase tracking-[2px]">API Family Workspace</span>
+            </div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/65">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+            <h1 className="text-3xl sm:text-4xl lg:text-[42px] font-black tracking-[-0.035em] leading-none mt-2">{`Welcome, ${user?.full_name?.split(' ')[0] || 'Colleague'}`}</h1>
+            <p className="text-sm text-white/72 mt-3 max-w-lg">One team. Many ventures. A shared tomorrow.</p>
+            <div className="mt-5 flex flex-wrap items-center gap-2.5">
+              <motion.button whileHover={{ y: -2 }} whileTap={{ scale: 0.97 }} onClick={() => navigate('/feed')} className="inline-flex items-center gap-2 rounded-xl bg-brand-red px-4 py-2.5 text-[9px] font-black uppercase tracking-wider text-white shadow-lg shadow-brand-red/25 transition-colors hover:bg-brand-red-dark">
+                Explore updates <ArrowRight className="h-3.5 w-3.5" />
+              </motion.button>
+              <motion.button whileHover={{ y: -2 }} whileTap={{ scale: 0.97 }} onClick={onOpenNotes} className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-[9px] font-black uppercase tracking-wider text-white backdrop-blur-xl transition-colors hover:bg-white/[0.18]">
+                <StickyNote className="h-3.5 w-3.5" /> My notes {noteCount > 0 && <span className="rounded-full bg-white/18 px-1.5 py-0.5">{noteCount}</span>}
+              </motion.button>
+            </div>
+          </motion.div>
+        </div>
+      </motion.section>
+
+      <motion.section
+        initial={{ opacity: 0, y: 22 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.18 }}
+        transition={{ duration: 0.55, delay: 0.08 }}
+        className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch"
+      >
+        <motion.div whileHover={{ y: -3 }} transition={{ type: 'spring', stiffness: 280, damping: 22 }} className="lg:col-span-5 min-w-0">
+          <WeatherCard
+            weatherData={weatherData}
+            weatherUpdatedAt={weatherUpdatedAt}
+            weatherRefreshing={weatherRefreshing}
+            onRefresh={onRefreshWeather}
+            compact
+          />
+        </motion.div>
+
+        <motion.section whileHover={{ y: -3 }} transition={{ type: 'spring', stiffness: 280, damping: 22 }} id="exchange-rates" className="lg:col-span-7 bg-white/90 backdrop-blur-xl border border-white rounded-2xl p-4 shadow-[0_16px_42px_-28px_rgba(15,23,42,0.5)] scroll-mt-24 h-full">
+        <div className="flex items-center justify-between mb-3">
+          <div><div className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.1)]" /><h2 className="text-sm font-black text-slate-900">USD / LKR Exchange Rates</h2></div><p className="text-[10px] text-slate-400 font-semibold mt-1 ml-3.5">Commercial, Seylan and CBSL reference rates</p></div>
+          <motion.button whileTap={{ scale: 0.95 }} onClick={onRefreshRates} disabled={fxRefreshing} className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-100 bg-slate-50/80 text-slate-500 text-[9px] font-black uppercase tracking-wider hover:border-brand-red/10 hover:bg-brand-red/5 hover:text-brand-red transition-colors">
+            <RefreshCw className={`w-3.5 h-3.5 ${fxRefreshing ? 'animate-spin' : ''}`} /> {fxUpdatedAt ? `Updated ${fxUpdatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Refresh'}
+          </motion.button>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          {banks.map(bank => {
+            const rate = exchangeRates?.[bank.key] || {};
+            return <motion.div key={bank.key} whileHover={{ y: -4, scale: 1.012 }} transition={{ type: 'spring', stiffness: 320, damping: 22 }} className="group relative overflow-hidden rounded-xl border border-slate-100 bg-gradient-to-br from-white to-slate-50/80 p-3 shadow-sm hover:border-brand-red/10 hover:shadow-lg hover:shadow-slate-200/50">
+              <div className={`absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b ${bank.tone}`} />
+              <div className="absolute -right-8 -top-8 h-20 w-20 rounded-full bg-brand-gold/5 transition-transform duration-500 group-hover:scale-150" />
+              <div className="relative flex items-center justify-between"><div className="flex items-center gap-2"><div className={`w-8 h-8 rounded-lg flex items-center justify-center ${bank.chip}`}><bank.icon className="w-4 h-4" /></div><div><p className="text-xs font-black text-slate-800">{bank.label}</p><p className="text-[8px] uppercase tracking-wider font-bold text-slate-400">USD / LKR</p></div></div><span className={`text-[9px] font-black ${rate.up ? 'text-emerald-600' : 'text-rose-600'}`}>{rate.change || '—'}</span></div>
+              <div className="mt-3"><p className="text-[8px] uppercase tracking-widest font-black text-slate-400">Spot rate</p><p className="text-xl font-black text-slate-900">{rate.rate || '—'}</p><div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-slate-200/70"><div><p className="text-[7px] text-slate-400 font-bold uppercase">Buy</p><p className="text-[10px] font-black text-slate-700">{rate.buy || '—'}</p></div><div><p className="text-[7px] text-slate-400 font-bold uppercase">Sell</p><p className="text-[10px] font-black text-slate-700">{rate.sell || '—'}</p></div></div></div>
+            </motion.div>;
+          })}
+        </div>
+        </motion.section>
+      </motion.section>
+
+      <motion.div initial={{ opacity: 0, y: 14 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="relative z-10 flex items-end justify-between pt-1">
+        <div><p className="text-[9px] font-black uppercase tracking-[0.24em] text-brand-red">Stay connected</p><h2 className="mt-1 text-lg font-black tracking-tight text-slate-900">Your workspace highlights</h2></div>
+        <p className="hidden text-[10px] font-bold text-slate-400 sm:block">Live, relevant and personalized for you</p>
+      </motion.div>
+
+      <motion.section
+        initial="hidden"
+        whileInView="show"
+        viewport={{ once: true, amount: 0.12 }}
+        variants={{ hidden: {}, show: { transition: { staggerChildren: 0.1 } } }}
+        className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-4"
+      >
+        <motion.article variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }} whileHover={{ y: -4 }} transition={{ duration: 0.4 }} className="lg:col-span-5 bg-white/90 backdrop-blur-xl border border-white rounded-2xl shadow-[0_16px_40px_-28px_rgba(15,23,42,0.55)] overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100"><div><div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-brand-red animate-pulse" /><h2 className="text-sm font-black text-slate-900">Company Alerts</h2></div><p className="text-[10px] text-slate-400 font-semibold mt-0.5 ml-4">Updates rotate automatically</p></div><button onClick={() => navigate('/alerts')} className="text-[9px] font-black uppercase tracking-wider text-brand-red hover:text-brand-red-dark transition-colors">View all</button></div>
+          <div className="p-5">
+            <AnimatePresence mode="wait">
+              <motion.div key={activeAlert.id || alertIndex} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.35 }} whileHover={{ scale: 1.01 }} className="group relative rounded-2xl bg-gradient-to-br from-[#C41230] via-[#B9102D] to-[#8F1026] p-5 text-white min-h-[150px] flex flex-col justify-between cursor-pointer overflow-hidden shadow-lg shadow-brand-red/15" onClick={() => navigate('/alerts')}>
+                <div className="absolute -right-10 -top-12 h-36 w-36 rounded-full border border-white/10 transition-transform duration-700 group-hover:scale-125" /><div className="absolute -right-2 top-2 h-20 w-20 rounded-full bg-white/5 blur-xl" />
+                <div className="relative flex items-start justify-between"><div className="w-10 h-10 rounded-xl bg-white/15 border border-white/10 backdrop-blur-md flex items-center justify-center"><Megaphone className="w-5 h-5" /></div><span className="rounded-full bg-white/10 px-2.5 py-1 text-[8px] font-black uppercase tracking-wider text-white/70">{activeAlert.time || 'Now'}</span></div>
+                <div className="relative"><h3 className="text-lg font-black tracking-tight">{activeAlert.title}</h3><p className="text-xs text-white/75 mt-1 line-clamp-2">{activeAlert.message}</p><div className="mt-3 flex items-center gap-1 text-[8px] font-black uppercase tracking-wider text-white/55">Open notice <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-1" /></div></div>
+              </motion.div>
+            </AnimatePresence>
+            <div className="flex gap-1.5 mt-3">{safeAlerts.map((_, i) => <button key={i} onClick={() => setAlertIndex(i)} className={`h-1.5 rounded-full transition-all ${i === alertIndex ? 'w-7 bg-brand-red' : 'w-1.5 bg-slate-200'}`} />)}</div>
+          </div>
+        </motion.article>
+
+        <motion.article variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }} whileHover={{ y: -4 }} transition={{ duration: 0.4 }} className="lg:col-span-4 bg-white/90 backdrop-blur-xl border border-white rounded-2xl shadow-[0_16px_40px_-28px_rgba(15,23,42,0.55)] overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100"><div><h2 className="text-sm font-black text-slate-900">Special Offers</h2><p className="text-[10px] text-slate-400 font-semibold mt-0.5">Exclusive employee benefits</p></div><button onClick={() => navigate('/offers')} className="text-[9px] font-black uppercase tracking-wider text-brand-red hover:text-brand-red-dark transition-colors">View all</button></div>
+          <div className="divide-y divide-slate-100">
+            {(safeOffers.length ? safeOffers : [{ title: 'Explore employee benefits', description: 'View current offers available for staff.', image_url: '/citrus_hero.png' }]).map((offer, i) => <motion.button whileHover={{ x: 4 }} key={offer.id || i} onClick={() => navigate('/offers')} className="group w-full flex items-center gap-3 px-5 py-3 text-left hover:bg-brand-red/[0.025] transition-colors"><div className="relative overflow-hidden rounded-xl"><img src={offer.image_url || '/citrus_hero.png'} alt="" className="w-14 h-11 object-cover transition-transform duration-500 group-hover:scale-110" /><div className="absolute inset-0 ring-1 ring-inset ring-black/5 rounded-xl" /></div><div className="min-w-0 flex-1"><p className="text-xs font-black text-slate-800 truncate group-hover:text-brand-red transition-colors">{offer.title}</p><p className="text-[9px] text-slate-400 font-semibold truncate mt-1">{offer.description}</p></div><ChevronRight className="w-4 h-4 text-slate-300 transition-transform group-hover:translate-x-1 group-hover:text-brand-red" /></motion.button>)}
+          </div>
+        </motion.article>
+
+        <motion.article variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }} whileHover={{ y: -4 }} transition={{ duration: 0.4 }} className="lg:col-span-3 bg-white/90 backdrop-blur-xl border border-white rounded-2xl shadow-[0_16px_40px_-28px_rgba(15,23,42,0.55)] overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100"><h2 className="text-sm font-black text-slate-900">Quick Links</h2><p className="text-[10px] text-slate-400 font-semibold mt-0.5">Frequently used services</p></div>
+          <div className="grid grid-cols-2 gap-2 p-3">{quickLinks.map(link => <motion.button whileHover={{ y: -3 }} whileTap={{ scale: 0.97 }} key={link.label} onClick={() => navigate(link.path)} className="group min-h-[88px] rounded-xl border border-slate-100 bg-slate-50/60 p-3 text-left transition-all hover:border-brand-red/10 hover:bg-white hover:shadow-md"><div className={`w-8 h-8 rounded-lg flex items-center justify-center ${link.tone} transition-transform group-hover:scale-110`}><link.icon className="w-4 h-4" /></div><p className="mt-2 text-[9px] font-black leading-tight text-slate-800 group-hover:text-brand-red transition-colors">{link.label}</p></motion.button>)}</div>
+        </motion.article>
+      </motion.section>
+
+    </div>
+  );
+};
+
 const EmployeeDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -583,12 +752,32 @@ const EmployeeDashboard = () => {
     },
   ];
 
+  return (
+    <PremiumDashboard
+      user={user}
+      alerts={displayAlerts}
+      offers={displayOffers}
+      exchangeRates={exchangeRates}
+      fxUpdatedAt={fxUpdatedAt}
+      fxRefreshing={fxRefreshing}
+      onRefreshRates={() => fetchExchangeRates(true)}
+      weatherData={weatherData}
+      weatherUpdatedAt={weatherUpdatedAt}
+      weatherRefreshing={weatherRefreshing}
+      onRefreshWeather={() => fetchWeather(true)}
+      navigate={navigate}
+      onOpenNotes={() => setShowNotesPanel(true)}
+      noteCount={notes.length}
+    />
+  );
+
+  /* Legacy dashboard markup retained temporarily below for safe rollback. */
 
   return (
-    <div className="space-y-5 pb-20 animate-in fade-in duration-700 max-w-[1600px] mx-auto px-4 md:px-6">
+    <div className="space-y-4 pb-16 animate-in fade-in duration-700 mx-auto">
 
       {/* ── TOP ANNOUNCEMENTS TICKER ─────────────────────────────────────── */}
-      <div className="bg-gradient-to-r from-[#C8102E] to-[#9B1C39] rounded-2xl px-4 py-2.5 flex items-center justify-between shadow-lg shadow-red-900/20">
+      <div className="bg-gradient-to-r from-[#C41230] to-[#9E0E27] rounded-2xl px-4 py-2.5 flex items-center justify-between shadow-lg shadow-red-900/20">
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <div className="flex items-center gap-2 shrink-0">
             <span className="w-2 h-2 rounded-full bg-white animate-ping opacity-80" />
@@ -625,13 +814,13 @@ const EmployeeDashboard = () => {
       </div>
 
       {/* ── MAIN GRID ────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
 
         {/* ── LEFT PANEL (col-span-9) ──────────────────────────────────── */}
-        <div className="lg:col-span-9 space-y-5">
+        <div className="lg:col-span-9 space-y-4">
 
           {/* ROW 1 — Weather + Safety Alerts */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
             {/* ── WEATHER CARD (iPhone-style immersive live scene) ───── */}
             <WeatherCard
@@ -647,13 +836,13 @@ const EmployeeDashboard = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15 }}
               whileHover={{ scale: 1.005 }}
-              className="rounded-3xl relative overflow-hidden bg-gradient-to-br from-[#E23E3E] via-[#C82A2A] to-[#A81B1B] text-white shadow-2xl shadow-red-950/20 min-h-[260px] flex flex-col group border border-white/10 transition-all duration-500"
+              className="rounded-2xl relative overflow-hidden bg-gradient-to-br from-[#E23E3E] via-[#C82A2A] to-[#A81B1B] text-white shadow-xl shadow-red-950/20 min-h-[240px] flex flex-col group border border-white/10 transition-all duration-500"
             >
               {/* decorative glowing orbs inside Safety Alerts */}
               <div className="absolute -top-12 -right-12 w-48 h-48 bg-white/10 rounded-full blur-3xl pointer-events-none group-hover:bg-white/20 transition-all duration-700 animate-pulse" />
               <div className="absolute -bottom-8 -left-8 w-36 h-36 bg-black/10 rounded-full blur-3xl pointer-events-none group-hover:bg-black/20 transition-all duration-700" />
 
-              <div className="relative z-10 p-6 flex flex-col h-full">
+              <div className="relative z-10 p-5 flex flex-col h-full">
                 {/* Header */}
                 <div className="flex justify-between items-center mb-5">
                   <div className="flex items-center gap-2.5">
@@ -828,7 +1017,7 @@ const EmployeeDashboard = () => {
                   <p className="text-[10px] text-slate-400 font-semibold">Members-only deals</p>
                 </div>
               </div>
-              <button onClick={() => navigate('/offers')} className="text-[10px] font-black text-slate-400 hover:text-[#C8102E] uppercase tracking-widest transition-colors cursor-pointer">
+              <button onClick={() => navigate('/offers')} className="text-[10px] font-black text-slate-400 hover:text-[#C41230] uppercase tracking-widest transition-colors cursor-pointer">
                 View All →
               </button>
             </div>
@@ -879,7 +1068,7 @@ const EmployeeDashboard = () => {
           <div className="rounded-3xl bg-white dark:bg-[#131B2E] border border-slate-100 dark:border-white/5 shadow-xl p-6 glass-card">
             <div className="flex justify-between items-center mb-5">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#C8102E] to-[#9B1C39] flex items-center justify-center shadow-md animate-float">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#C41230] to-[#9E0E27] flex items-center justify-center shadow-md animate-float">
                   <Megaphone className="w-4.5 h-4.5 text-white" />
                 </div>
                 <div>
@@ -887,7 +1076,7 @@ const EmployeeDashboard = () => {
                   <p className="text-[10px] text-slate-400 font-semibold">Company-wide notices</p>
                 </div>
               </div>
-              <button onClick={() => navigate('/feed')} className="text-[10px] font-black text-slate-400 hover:text-[#C8102E] uppercase tracking-widest transition-colors cursor-pointer">
+              <button onClick={() => navigate('/feed')} className="text-[10px] font-black text-slate-400 hover:text-[#C41230] uppercase tracking-widest transition-colors cursor-pointer">
                 View All →
               </button>
             </div>
@@ -903,7 +1092,7 @@ const EmployeeDashboard = () => {
                     whileHover={{ y: -4, scale: 1.015 }}
                     key={i}
                     onClick={() => navigate('/feed')}
-                    className="flex items-start gap-3 p-4 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-2xl hover:bg-white dark:hover:bg-white/10 hover:border-[#C8102E]/20 hover:shadow-md transition-all cursor-pointer group"
+                    className="flex items-start gap-3 p-4 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-2xl hover:bg-white dark:hover:bg-white/10 hover:border-[#C41230]/20 hover:shadow-md transition-all cursor-pointer group"
                   >
                     <div className={`w-10 h-10 rounded-full border flex items-center justify-center shrink-0 ${iconBg} group-hover:scale-105 transition-transform`}>
                       <ActIcon className="w-4.5 h-4.5" />
@@ -924,7 +1113,7 @@ const EmployeeDashboard = () => {
         </div>
 
         {/* ── RIGHT SIDEBAR (col-span-3) ───────────────────────────────── */}
-        <div className="lg:col-span-3 space-y-5">
+        <div className="lg:col-span-3 space-y-4">
 
           {/* Greeting Card */}
           <div className="rounded-3xl border border-slate-200/10 dark:border-white/10 shadow-2xl min-h-[195px] relative overflow-hidden flex items-center group hover:scale-[1.015] hover:shadow-amber-500/5 transition-all duration-500">
@@ -972,7 +1161,7 @@ const EmployeeDashboard = () => {
                 { name: 'Document Hub', icon: FileText, path: '/documents', bg: 'bg-amber-50 dark:bg-amber-950/30', text: 'text-amber-600', border: 'border-amber-100 dark:border-amber-900/20', hoverShadow: 'hover:shadow-amber-500/10' },
                 { name: 'My Tasks', icon: CheckCircle2, path: '/tasks', bg: 'bg-violet-50 dark:bg-violet-950/30', text: 'text-violet-600', border: 'border-violet-100 dark:border-violet-900/20', hoverShadow: 'hover:shadow-violet-500/10' },
                 { name: 'Directory', icon: Users, path: '/directory', bg: 'bg-sky-50 dark:bg-sky-950/30', text: 'text-sky-600', border: 'border-sky-100 dark:border-sky-900/20', hoverShadow: 'hover:shadow-sky-500/10' },
-                { name: 'IT Support', icon: MessageSquare, path: '/help-desk', bg: 'bg-teal-50 dark:bg-teal-950/30', text: 'text-teal-600', border: 'border-teal-100 dark:border-teal-900/20', hoverShadow: 'hover:shadow-teal-500/10' },
+                { name: 'Notices & Perks', icon: Megaphone, path: '/feed', bg: 'bg-teal-50 dark:bg-teal-950/30', text: 'text-teal-600', border: 'border-teal-100 dark:border-teal-900/20', hoverShadow: 'hover:shadow-teal-500/10' },
               ].map((act, i) => {
                 const Icon = act.icon;
                 return (
@@ -1001,7 +1190,7 @@ const EmployeeDashboard = () => {
             </div>
             <button
               onClick={() => navigate('/directory')}
-              className="w-full py-2.5 mt-4 bg-gradient-to-r from-[#C8102E] to-[#9B1C39] hover:from-[#9B1C39] hover:to-[#7F1D1D] text-white rounded-xl text-[9px] font-black uppercase tracking-widest shadow-md shadow-red-900/30 transition-all cursor-pointer active:scale-[0.98]"
+              className="w-full py-2.5 mt-4 bg-gradient-to-r from-[#C41230] to-[#9E0E27] hover:from-[#9E0E27] hover:to-[#7F1D1D] text-white rounded-xl text-[9px] font-black uppercase tracking-widest shadow-md shadow-red-900/30 transition-all cursor-pointer active:scale-[0.98]"
             >
               View All Services
             </button>
@@ -1151,7 +1340,7 @@ const EmployeeDashboard = () => {
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.93 }}
           onClick={() => setShowNotesPanel(!showNotesPanel)}
-          className={`w-13 h-13 w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-all cursor-pointer relative ${showNotesPanel ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'bg-gradient-to-br from-[#C8102E] to-[#9B1C39] text-white shadow-red-900/50'}`}
+          className={`w-13 h-13 w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-all cursor-pointer relative ${showNotesPanel ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'bg-gradient-to-br from-[#C41230] to-[#9E0E27] text-white shadow-red-900/50'}`}
         >
           {showNotesPanel ? <X className="w-5 h-5" /> : (
             <>

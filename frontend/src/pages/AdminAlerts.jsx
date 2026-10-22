@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import AdminPageHeader from '../components/AdminPageHeader';
 import { 
   Megaphone, Search, Plus, Trash2, X, Check, AlertCircle, 
   AlertTriangle, Shield, Info, Building2, Calendar, RefreshCw 
@@ -50,8 +51,8 @@ const alertIconMap = {
 
 export default function AdminAlerts() {
   const { user } = useAuth();
-  const isSuperAdmin = user?.role === 'super_admin';
-  const isSubAdmin = user?.role !== 'super_admin';
+  const isSuperOrGroupAdmin = user?.role === 'superadmin' || user?.role === 'super_admin' || user?.role === 'groupadmin' || user?.role === 'group_admin';
+  const isSubAdmin = user?.role === 'subadmin' || user?.role === 'sub_admin';
 
   const [alerts, setAlerts] = useState([]);
   const [subsidiaries, setSubsidiaries] = useState([]);
@@ -106,7 +107,7 @@ export default function AdminAlerts() {
         axios.get(`${API}/subsidiaries`)
       ]);
       let fetchedAlerts = alertsRes.data;
-      if (user.role !== 'super_admin') {
+      if (isSubAdmin) {
         fetchedAlerts = fetchedAlerts.filter(a => Number(a.subsidiary_id) === Number(user.subsidiary_id));
       }
       setAlerts(fetchedAlerts);
@@ -132,7 +133,11 @@ export default function AdminAlerts() {
     
     setSubmitting(true);
     try {
-      await axios.post(`${API}/alerts`, form);
+      await axios.post(`${API}/alerts`, {
+        ...form,
+        role: user.role,
+        user_subsidiary_id: user.subsidiary_id
+      });
       showToast('New system alert published successfully ✓');
       setAddModal(false);
       setForm(getInitialForm());
@@ -148,7 +153,7 @@ export default function AdminAlerts() {
   async function handleDelete() {
     if (!deleteAlert) return;
     try {
-      await axios.delete(`${API}/alerts/${deleteAlert.id}`);
+      await axios.delete(`${API}/alerts/${deleteAlert.id}?role=${user.role}&user_subsidiary_id=${user.subsidiary_id}`);
       showToast('Alert deleted and retracted successfully ✓');
       setDeleteAlert(null);
       loadData();
@@ -185,38 +190,15 @@ export default function AdminAlerts() {
         )}
       </AnimatePresence>
 
-      {/* HERO BANNER */}
-      <div className="px-4 sm:px-8 pt-4 sm:pt-8">
-        <div className="relative h-[220px] sm:h-[300px] md:h-[350px] w-full overflow-hidden rounded-[24px] sm:rounded-[36px] shadow-xl group">
-          <img 
-            src="/admin_premium_cover.png" 
-            alt="Alert Management" 
-            className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-900/40 to-transparent"/>
-          <div className="absolute inset-0 flex items-center px-6 sm:px-10 md:px-16">
-            <motion.div 
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6 }}
-              className="max-w-2xl"
-            >
-              <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-brand-red/20 backdrop-blur-md border border-brand-red/30 rounded-full mb-2.5 sm:mb-3.5">
-                <div className="w-1.5 h-1.5 bg-brand-red rounded-full animate-pulse"/>
-                <span className="text-[8px] font-black text-brand-red uppercase tracking-[3px]">Crisis & notice board</span>
-              </div>
-              <h1 className="text-2xl sm:text-3xl md:text-5xl font-black text-white tracking-tighter leading-none mb-2">
-                System Alerts &amp; <span className="text-brand-red">Notices</span>
-              </h1>
-              <p className="text-white/60 text-xs sm:text-sm font-medium leading-relaxed max-w-lg hidden sm:block">
-                Create real-time notices, HR instructions, emergency alerts, or security updates targeting global conglomerate segments or unique corporate entities.
-              </p>
-            </motion.div>
-          </div>
-        </div>
+      <div className="mb-6">
+        <AdminPageHeader
+          icon={Megaphone}
+          title="Alerts Manager"
+          description="Publish real-time notices, HR instructions, emergency alerts, and security updates to the right audience."
+        />
       </div>
 
-      <div className="px-4 sm:px-8 md:px-10 -mt-10 sm:-mt-16 relative z-10">
+      <div className="px-4 sm:px-8 md:px-10 mt-6">
         
         {/* STAT CARDS */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 mb-8">

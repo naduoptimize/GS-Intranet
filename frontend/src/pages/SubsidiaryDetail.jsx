@@ -23,6 +23,14 @@ import {
 import { motion } from 'framer-motion';
 import axios from 'axios';
 
+const resolveImgUrl = (url) => {
+   if (!url) return null;
+   if (url.startsWith('http://') || url.startsWith('https://')) return url;
+   if (url.startsWith('/uploads/')) return `http://localhost:5000${url}`;
+   if (url.startsWith('uploads/')) return `http://localhost:5000/${url}`;
+   return url;
+};
+
 const SubsidiaryDetail = () => {
    const { id } = useParams();
    const navigate = useNavigate();
@@ -461,6 +469,38 @@ const SubsidiaryDetail = () => {
          };
       }
 
+      // Optimize
+      if (lowName.includes('optimize')) {
+         return {
+            primary: 'text-[#2563EB]',
+            secondary: 'bg-[#2563EB]',
+            accent: 'bg-[#2563EB]/10',
+            light: 'bg-[#2563EB]/5',
+            border: 'border-[#2563EB]/10',
+            icon: Lightbulb,
+            tagline: 'Accelerating Digital Transformation',
+            hex: '#2563EB',
+            logo: '/solutions_logo.png',
+            cover: '/industrial_premium.png',
+            insight: 'George Steuart Optimize delivers enterprise digital transformation, cloud software engineering, cybersecurity, and strategic IT modernization across the group and external partners.',
+            leadership: [
+               { name: 'Janidu Perera', role: 'Chief Technology Officer' },
+               { name: 'Chanika Dassanayake', role: 'Senior IT Executive' }
+            ],
+            showcase: [
+               { title: 'Enterprise Software', desc: 'Custom Cloud Applications', img: 'https://images.unsplash.com/photo-1551434678-e076c223a692?auto=format&fit=crop&q=80&w=800', url: 'https://www.gsoptimize.lk/' },
+               { title: 'Cloud Infrastructure', desc: 'Secure Azure & M365 Ecosystems', img: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&q=80&w=800', url: 'https://www.gsoptimize.lk/' },
+               { title: 'Digital Workplace', desc: 'Group Intranet & Workflow Automation', img: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&q=80&w=800', url: 'https://www.gsoptimize.lk/' },
+               { title: 'Cybersecurity', desc: 'Zero Trust & SOC Operations', img: 'https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&q=80&w=800', url: 'https://www.gsoptimize.lk/' }
+            ],
+            widgets: [
+               { title: 'Cloud & AI', desc: 'Modern Tech Stack', icon: Zap },
+               { title: 'Security', desc: 'Zero Trust Certified', icon: ShieldCheck },
+               { title: 'Innovate', desc: 'Digital Transformation', icon: Lightbulb }
+            ]
+         };
+      }
+
       // Default
       return {
          primary: 'text-brand-red',
@@ -477,14 +517,14 @@ const SubsidiaryDetail = () => {
    useEffect(() => {
       const fetchData = async () => {
          try {
-            const [subRes, staffRes, dirRes] = await Promise.all([
-               axios.get(`http://localhost:5000/api/subsidiaries/${id}`),
+            const subRes = await axios.get(`http://localhost:5000/api/subsidiaries/${id}`);
+            const [staffResult, directorResult] = await Promise.allSettled([
                axios.get(`http://localhost:5000/api/users?subsidiaryId=${id}`),
                axios.get(`http://localhost:5000/api/subsidiaries/${id}/directors`)
             ]);
             setSubsidiary(subRes.data);
-            setStaff(staffRes.data);
-            setDirectors(dirRes.data);
+            setStaff(staffResult.status === 'fulfilled' ? staffResult.value.data : []);
+            setDirectors(directorResult.status === 'fulfilled' ? directorResult.value.data : []);
          } catch (err) {
             console.error('Failed to fetch subsidiary data', err);
             navigate('/subsidiary');
@@ -514,14 +554,14 @@ const SubsidiaryDetail = () => {
    return (
       <div className="relative selection:bg-brand-red/10 pb-20 overflow-x-hidden">
          {/* Main Container */}
-         <div className="max-w-[1400px] mx-auto px-4 md:px-10 pt-6 space-y-6 md:space-y-8">
+         <div className="max-w-[1400px] mx-auto px-4 md:px-8 pt-4 space-y-5 md:space-y-6">
 
             {/* Back Button */}
             <button
                onClick={() => navigate('/subsidiary')}
-               className="flex items-center gap-3 bg-white/40 backdrop-blur-xl border border-slate-100 p-2 pr-6 rounded-2xl hover:bg-white hover:shadow-xl transition-all group w-fit"
+               className="flex items-center gap-2.5 bg-white border border-slate-200 p-1.5 pr-4 rounded-xl hover:border-slate-300 hover:shadow-md transition-all group w-fit"
             >
-               <div className={`w-8 h-8 rounded-lg ${brand.secondary} text-white flex items-center justify-center group-hover:scale-110 transition-transform`}>
+               <div className={`w-7 h-7 rounded-lg ${brand.secondary} text-white flex items-center justify-center group-hover:-translate-x-0.5 transition-transform`}>
                   <ArrowLeft className="w-4 h-4" />
                </div>
                <span className="text-[9px] font-black text-slate-800 uppercase tracking-[2px]">Back to Portfolio</span>
@@ -532,39 +572,39 @@ const SubsidiaryDetail = () => {
                <motion.div
                   initial={{ opacity: 0, y: 40 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="relative h-[450px] md:h-[650px] rounded-[30px] md:rounded-[60px] overflow-hidden shadow-2xl"
-                  style={{ clipPath: 'ellipse(150% 100% at 50% 0%)' }}
+                  className="relative min-h-[410px] md:min-h-0 md:h-[320px] rounded-[26px] md:rounded-[30px] overflow-hidden shadow-[0_22px_60px_-34px_rgba(15,23,42,0.5)] border border-white/20"
                >
                   <img
-                     src={brand.cover || subsidiary.cover_image || '/sub_1.png'}
+                     src={resolveImgUrl(subsidiary.cover_image) || brand.cover || '/sub_1.png'}
                      alt={subsidiary.name}
                      className="w-full h-full object-cover"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/55 to-black/10" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/10" />
                   <div className={`absolute inset-0 bg-gradient-to-br ${brand.secondary}/20 opacity-30 mix-blend-overlay`} />
 
-                  <div className="absolute inset-0 p-8 md:p-16 lg:p-24 flex flex-col justify-center">
-                     <div className="max-w-2xl lg:max-w-[60%] space-y-6 md:space-y-10">
-                        <div className="flex items-center gap-4 md:gap-6">
-                           <div className="h-16 md:h-28 px-4 md:px-8 bg-white rounded-2xl md:rounded-[35px] shadow-2xl flex items-center justify-center group-hover:scale-105 transition-transform duration-500 min-w-[100px] md:min-w-[160px]">
-                              <img src={brand.logo || "/api_logo.png"} className="h-10 md:h-20 w-auto object-contain transform scale-110" />
+                  <div className="absolute inset-0 p-6 md:p-8 lg:p-9 flex flex-col justify-center">
+                     <div className="max-w-xl lg:max-w-[62%] space-y-4">
+                        <div className="flex items-center gap-3.5">
+                           <div className="h-12 md:h-13 px-4 bg-white rounded-xl shadow-lg flex items-center justify-center group-hover:scale-[1.02] transition-transform duration-500 min-w-[88px] md:min-w-[100px]">
+                              <img src={resolveImgUrl(subsidiary.logo_url) || brand.logo || "/api_logo.png"} className="h-8 md:h-9 max-w-[150px] w-auto object-contain" />
                            </div>
-                           <div className="h-8 md:h-12 w-px bg-white/20" />
+                           <div className="h-8 w-px bg-white/25" />
                            <div>
                               <p className="text-white/40 font-black text-[7px] md:text-[9px] uppercase tracking-[2px] md:tracking-[4px] leading-none mb-1 md:mb-2">Entity Division</p>
                               <p className="text-white font-black text-[9px] md:text-[11px] uppercase tracking-[1px] md:tracking-[2px]">{subsidiary.category} Sector</p>
                            </div>
                         </div>
-                        <div className="space-y-4 md:space-y-6">
-                           <h1 className="text-4xl md:text-7xl lg:text-[90px] font-black text-white leading-[0.9] tracking-tighter">
+                        <div className="space-y-2.5">
+                           <h1 className="text-4xl md:text-[42px] lg:text-[46px] font-black text-white leading-[0.95] tracking-[-0.045em] max-w-[620px]">
                               {subsidiary.name}
                            </h1>
-                           <p className="text-base md:text-2xl text-white/80 font-medium max-w-2xl leading-relaxed line-clamp-3 md:line-clamp-none">
+                           <p className="text-sm text-white/75 font-medium max-w-xl leading-relaxed line-clamp-2">
                               {subsidiary.description}
                            </p>
                         </div>
-                        <div className="flex flex-wrap items-center gap-3 md:gap-6">
-                           <div className="flex items-center gap-2 md:gap-3 px-4 md:px-6 py-2 md:py-4 bg-white/10 backdrop-blur-xl rounded-xl md:rounded-2xl border border-white/20 text-white text-[8px] md:text-[11px] font-black uppercase tracking-[1px] md:tracking-[2px]">
+                        <div className="flex flex-wrap items-center gap-2.5">
+                           <div className="flex items-center gap-2 px-3 py-2 bg-black/20 backdrop-blur-xl rounded-lg border border-white/15 text-white text-[8px] font-black uppercase tracking-[1px]">
                               <MapPin className={`w-3 md:w-5 h-3 md:h-5 ${brand.primary}`} /> {subsidiary.location}
                            </div>
                            {subsidiary.website ? (
@@ -572,16 +612,16 @@ const SubsidiaryDetail = () => {
                                  href={subsidiary.website.startsWith('http') ? subsidiary.website : `https://${subsidiary.website}`}
                                  target="_blank"
                                  rel="noopener noreferrer"
-                                 className="flex items-center gap-2 md:gap-3 px-4 md:px-6 py-2 md:py-4 bg-white/10 backdrop-blur-xl rounded-xl md:rounded-2xl border border-white/20 text-white text-[8px] md:text-[11px] font-black uppercase tracking-[1px] md:tracking-[2px] hover:bg-white/25 hover:shadow-lg transition-all cursor-pointer"
+                                 className="flex items-center gap-2 px-3 py-2 bg-black/20 backdrop-blur-xl rounded-lg border border-white/15 text-white text-[8px] font-black uppercase tracking-[1px] hover:bg-white/20 transition-all cursor-pointer max-w-[200px] truncate"
                               >
                                  <Globe2 className={`w-3 md:w-5 h-3 md:h-5 ${brand.primary}`} /> {subsidiary.website}
                               </a>
                            ) : (
-                              <div className="flex items-center gap-2 md:gap-3 px-4 md:px-6 py-2 md:py-4 bg-white/10 backdrop-blur-xl rounded-xl md:rounded-2xl border border-white/20 text-white text-[8px] md:text-[11px] font-black uppercase tracking-[1px] md:tracking-[2px]">
+                              <div className="flex items-center gap-2 px-3 py-2 bg-black/20 backdrop-blur-xl rounded-lg border border-white/15 text-white text-[8px] font-black uppercase tracking-[1px]">
                                  <Globe2 className={`w-3 md:w-5 h-3 md:h-5 ${brand.primary}`} /> No Website
                               </div>
                            )}
-                           <div className="flex items-center gap-2 md:gap-3 px-4 md:px-6 py-2 md:py-4 bg-white/10 backdrop-blur-xl rounded-xl md:rounded-2xl border border-white/20 text-white text-[8px] md:text-[11px] font-black uppercase tracking-[1px] md:tracking-[2px]">
+                           <div className="flex items-center gap-2 px-3 py-2 bg-black/20 backdrop-blur-xl rounded-lg border border-white/15 text-white text-[8px] font-black uppercase tracking-[1px]">
                               <Users className={`w-3 md:w-5 h-3 md:h-5 ${brand.primary}`} /> {staff.length + directors.length} Employees
                            </div>
                         </div>
@@ -594,44 +634,44 @@ const SubsidiaryDetail = () => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.5 }}
-                  className="relative md:absolute md:right-12 md:-bottom-12 w-full md:w-[400px] bg-white p-6 md:p-10 rounded-[30px] md:rounded-[50px] shadow-2xl md:shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] space-y-6 md:space-y-8 z-10 border border-slate-100 mt-6 md:mt-0"
+                  className="relative md:absolute md:right-5 lg:right-6 md:bottom-5 lg:bottom-6 w-full md:w-[255px] bg-white/95 backdrop-blur-xl p-4 md:p-5 rounded-[22px] shadow-[0_20px_50px_-24px_rgba(15,23,42,0.45)] space-y-3.5 z-10 border border-white/70 mt-4 md:mt-0"
                >
                   <div className="flex items-center justify-between">
-                     <h3 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">Entity Pulse</h3>
-                     <div className={`w-10 h-10 md:w-12 md:h-12 ${brand.light} ${brand.primary} rounded-xl md:rounded-2xl flex items-center justify-center shadow-lg shadow-current/10`}>
-                        <Rss className="w-5 md:w-6 h-5 md:h-6" />
+                     <h3 className="text-sm md:text-base font-black text-slate-800 tracking-tight">Entity Pulse</h3>
+                     <div className={`w-8 h-8 ${brand.light} ${brand.primary} rounded-lg flex items-center justify-center`}>
+                        <Rss className="w-4 h-4" />
                      </div>
                   </div>
 
-                  <div className="flex items-center justify-between gap-6">
+                  <div className="flex items-center justify-between gap-4">
                      <div>
-                        <p className="text-6xl md:text-8xl font-black text-slate-900 leading-none tracking-tighter">
+                        <p className="text-3xl md:text-4xl font-black text-slate-900 leading-none tracking-tighter">
                            {staff.length + directors.length}
                         </p>
-                        <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mt-3 md:mt-4">Active Hub Staff</p>
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-2">Active Staff</p>
                      </div>
-                     <div className="flex flex-col items-center gap-2 md:gap-3">
-                        <div className="relative w-20 h-20 md:w-24 md:h-24">
+                     <div className="flex flex-col items-center gap-1.5">
+                        <div className="relative w-14 h-14">
                            <svg className="w-full h-full" viewBox="0 0 100 100">
                               <circle cx="50" cy="50" r="45" fill="none" stroke="#F1F5F9" strokeWidth="8" />
                               <circle cx="50" cy="50" r="45" fill="none" stroke={brand.hex || '#10B981'} strokeWidth="8" strokeDasharray="282.7" strokeDashoffset="28" strokeLinecap="round" className="transition-all duration-1000" />
                            </svg>
                            <div className="absolute inset-0 flex items-center justify-center">
-                              <span className="text-lg md:text-xl font-black text-slate-800 tracking-tight">96%</span>
+                              <span className="text-sm font-black text-slate-800 tracking-tight">96%</span>
                            </div>
                         </div>
-                        <p className={`text-[8px] md:text-[9px] font-black ${brand.primary} uppercase tracking-widest text-center leading-tight`}>Health Index <br /><span className="opacity-50">Stable</span></p>
+                        <p className={`text-[7px] font-black ${brand.primary} uppercase tracking-widest text-center leading-tight`}>Health Index · Stable</p>
                      </div>
                   </div>
 
-                  <button className={`flex items-center gap-3 ${brand.primary} font-black text-[9px] md:text-[10px] uppercase tracking-widest group`}>
+                  <button className={`flex items-center gap-2 ${brand.primary} font-black text-[8px] uppercase tracking-widest group pt-1 border-t border-slate-100 w-full`}>
                      Enterprise Directory <ArrowRight className="w-4 h-4 group-hover:translate-x-2 transition-transform" />
                   </button>
                </motion.div>
             </div>
 
             {/* Strategic Columns */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 pt-4 md:pt-6 items-start">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6 items-start">
                <div className="bg-white p-6 md:p-8 rounded-[24px] md:rounded-[36px] shadow-xl border border-slate-50 space-y-5 group hover:-translate-y-2 transition-all">
                   <div className={`w-11 h-11 ${brand.light} ${brand.primary} rounded-xl flex items-center justify-center`}>
                      <Target className="w-5 h-5" />

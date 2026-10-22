@@ -72,15 +72,17 @@ const holidayRoutes = require('./routes/holidays');
 const newsRoutes = require('./routes/news');
 const memoriesRoutes = require('./routes/memories');
 const messageRoutes = require('./routes/messages');
-const ticketRoutes = require('./routes/tickets');
+// const ticketRoutes = require('./routes/tickets'); // Decommissioned ticketing system
 const factsRoutes = require('./routes/facts');
 const joinersRoutes = require('./routes/joiners');
 const notificationsRoutes = require('./routes/notifications');
 const alertsRoutes = require('./routes/alerts');
 const offersRoutes = require('./routes/offers');
+const communicationsRoutes = require('./routes/communications');
 
 // Use Routes
 app.use('/api/auth', authRoutes);
+app.use('/auth', authRoutes); // Supports /auth/microsoft/callback in addition to /api/auth/microsoft/callback
 app.use('/api/posts', postRoutes);
 app.use('/api/subsidiaries', subsidiaryRoutes);
 app.use('/api/documents', docRoutes);
@@ -90,12 +92,13 @@ app.use('/api/holidays', holidayRoutes);
 app.use('/api/news', newsRoutes);
 app.use('/api/memories', memoriesRoutes);
 app.use('/api/messages', messageRoutes);
-app.use('/api/tickets', ticketRoutes);
+// app.use('/api/tickets', ticketRoutes); // Decommissioned ticketing system
 app.use('/api/facts', factsRoutes);
 app.use('/api/joiners', joinersRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/alerts', alertsRoutes);
 app.use('/api/offers', offersRoutes);
+app.use('/api/communications', communicationsRoutes);
 app.use('/api/uploads', require('./routes/uploads'));
 
 server.listen(PORT, () => {

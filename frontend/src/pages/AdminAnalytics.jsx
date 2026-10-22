@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import AdminPageHeader from '../components/AdminPageHeader';
 import { 
   Users, 
   BarChart3, 
@@ -106,57 +107,19 @@ const AdminAnalytics = () => {
   return (
     <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#0B0F19] pb-20 transition-colors duration-350">
 
-      {/* HERO BANNER */}
-      <div className="px-4 sm:px-8 pt-4 sm:pt-8">
-        <div className="relative h-[220px] sm:h-[300px] md:h-[320px] w-full overflow-hidden rounded-[24px] sm:rounded-[36px] shadow-2xl group">
-          <img 
-            src="/admin_analytics_cover.png" 
-            alt="Analytics" 
-            className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
-            onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=1000'; }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-900/60 to-transparent"/>
-          <div className="absolute inset-0 flex items-center px-6 sm:px-10 md:px-16">
-            <motion.div 
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6 }}
-              className="max-w-2xl"
-            >
-              <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-indigo-500/20 backdrop-blur-md border border-indigo-500/30 rounded-full mb-2.5 sm:mb-3.5">
-                <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-pulse"/>
-                <span className="text-[8px] font-black text-indigo-400 uppercase tracking-[3px]">System Intelligence</span>
-              </div>
-              <h1 className="text-2xl sm:text-3xl md:text-5xl font-black text-white tracking-tighter leading-none mb-2">
-                Analytics &amp; <span className="text-brand-red">Network Insights</span>
-              </h1>
-              <p className="text-white/60 text-xs sm:text-sm font-medium leading-relaxed max-w-lg hidden sm:block">
-                Monitor platform interaction, check network health logs, and gather corporate engagement telemetry in real-time.
-              </p>
-            </motion.div>
-          </div>
-        </div>
-      </div>
+      <AdminPageHeader
+        icon={BarChart3}
+        title="Analytics & Network Insights"
+        description="Monitor platform activity, network health, and corporate engagement across the George Steuart digital workspace."
+      />
 
-      <div className="px-4 sm:px-8 md:px-10 -mt-10 sm:-mt-16 relative z-10 space-y-6">
-
+      <div className="space-y-6">
         {/* Title Tab Selector Card */}
         <motion.div 
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white dark:bg-[#131B2E] p-6 sm:p-8 rounded-3xl sm:rounded-[36px] border border-slate-100 dark:border-white/5 shadow-xl glass-card flex flex-col gap-6"
+          className="bg-white dark:bg-[#131B2E] p-4 sm:p-5 rounded-2xl border border-slate-150/70 dark:border-white/5 shadow-sm flex flex-col gap-4"
         >
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-6 border-b border-slate-100 dark:border-white/5 pb-4">
-            <div className="flex items-center gap-4 sm:gap-6 text-center sm:text-left flex-col sm:flex-row">
-              <div className="w-14 h-14 bg-brand-red/5 dark:bg-white/5 rounded-2xl flex items-center justify-center text-brand-red dark:text-white shrink-0">
-                <BarChart3 className="w-7 h-7" />
-              </div>
-              <div>
-                <h2 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white tracking-tight uppercase">System Analytics</h2>
-                <p className="text-slate-400 dark:text-slate-500 text-xs font-medium mt-1">Real-time data synchronization & platform statistics.</p>
-              </div>
-            </div>
-          </div>
 
           <div className="flex gap-2">
             <button 
@@ -235,15 +198,15 @@ const AdminAnalytics = () => {
                         <AreaChart data={stats?.engagementTrends || []}>
                           <defs>
                             <linearGradient id="colorLikes" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#C8102E" stopOpacity={0.15}/>
-                              <stop offset="95%" stopColor="#C8102E" stopOpacity={0}/>
+                              <stop offset="5%" stopColor="#C41230" stopOpacity={0.15}/>
+                              <stop offset="95%" stopColor="#C41230" stopOpacity={0}/>
                             </linearGradient>
                           </defs>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(148, 163, 184, 0.1)" />
                           <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#cbd5e1', fontWeight: 800 }} dy={10} />
                           <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#cbd5e1', fontWeight: 800 }} />
                           <Tooltip contentStyle={{ borderRadius: '16px', backgroundColor: '#1E293B', border: '1px solid rgba(255,255,255,0.1)', fontSize: '11px', color: '#fff', fontWeight: 700 }} />
-                          <Area type="monotone" dataKey="likes" stroke="#C8102E" strokeWidth={3} fillOpacity={1} fill="url(#colorLikes)" />
+                          <Area type="monotone" dataKey="likes" stroke="#C41230" strokeWidth={3} fillOpacity={1} fill="url(#colorLikes)" />
                         </AreaChart>
                       </ResponsiveContainer>
                     </div>
@@ -324,7 +287,7 @@ const AdminAnalytics = () => {
                             <XAxis dataKey="department" tick={{ fontSize: 9, fontWeight: 'bold', fill: '#cbd5e1' }} tickFormatter={(v) => v.toUpperCase()} />
                             <YAxis tick={{ fontSize: 9, fontWeight: 'bold', fill: '#cbd5e1' }} />
                             <Tooltip contentStyle={{ fontSize: 11, borderRadius: 12 }} />
-                            <Bar dataKey="count" name="Tickets" fill="#C8102E" radius={[8, 8, 0, 0]}>
+                            <Bar dataKey="count" name="Tickets" fill="#C41230" radius={[8, 8, 0, 0]}>
                               {ticketSummary.departments.map((entry, idx) => (
                                 <Cell key={`cell-${idx}`} fill={COLORS[idx % COLORS.length]} />
                               ))}
@@ -383,7 +346,7 @@ const AdminAnalytics = () => {
                             <XAxis dataKey="month" tick={{ fontSize: 9, fontWeight: 'bold', fill: '#cbd5e1' }} />
                             <YAxis tick={{ fontSize: 9, fontWeight: 'bold', fill: '#cbd5e1' }} />
                             <Tooltip contentStyle={{ fontSize: 11, borderRadius: 12 }} />
-                            <Line type="monotone" dataKey="count" name="Tickets Logged" stroke="#C8102E" strokeWidth={3} activeDot={{ r: 6 }} />
+                            <Line type="monotone" dataKey="count" name="Tickets Logged" stroke="#C41230" strokeWidth={3} activeDot={{ r: 6 }} />
                           </LineChart>
                         </ResponsiveContainer>
                       </div>

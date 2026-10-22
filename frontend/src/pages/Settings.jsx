@@ -63,15 +63,11 @@ const Settings = () => {
 
   // Theme Presets Definition
   const themePresets = {
-    'Classic Crimson': { name: 'Classic Crimson', primary: '#C8102E', dark: '#A30D25', light: '#FDECEF', sidebarDark: '#A30D25', bg: 'linear-gradient(135deg, #C8102E 0%, #A30D25 100%)', desc: 'Default corporate prestige representing George Steuart Heritage.' },
-    'Teas Emerald': { name: 'Teas Emerald', primary: '#10B981', dark: '#065F46', light: '#ECFDF5', sidebarDark: '#065F46', bg: 'linear-gradient(135deg, #10B981 0%, #065F46 100%)', desc: 'Vibrant agriculture tones honoring Ceylon Steuart Tea plantations.' },
-    'Citrus Sunrise': { name: 'Citrus Sunrise', primary: '#F59E0B', dark: '#D97706', light: '#FEF3C7', sidebarDark: '#D97706', bg: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)', desc: 'Bright sunny gradients highlighting Steuart Leisure and Travel.' },
-    'Royal Velvet': { name: 'Royal Velvet', primary: '#8B5CF6', dark: '#6D28D9', light: '#F5F3FF', sidebarDark: '#6D28D9', bg: 'linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%)', desc: 'Plum and royal violet tones customized for GS Investments.' },
-    'Ocean Breeze': { name: 'Ocean Breeze', primary: '#3B82F6', dark: '#1D4ED8', light: '#EFF6FF', sidebarDark: '#1D4ED8', bg: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)', desc: 'Vibrant cobalt blue tailored for Steuart Shipping and Logistics.' }
+    'George Steuart Heritage': { name: 'George Steuart Heritage', primary: '#C41230', dark: '#9E0E27', light: '#FFF0F3', sidebarDark: '#C41230', bg: 'linear-gradient(135deg, #9E0E27 0%, #C41230 62%, #C7A35A 100%)', desc: 'George Steuart crimson, antique gold and warm ivory corporate identity.' }
   };
 
   const [activePreset, setActivePreset] = useState(() => {
-    return localStorage.getItem('gs-theme-preset') || 'Classic Crimson';
+    return 'George Steuart Heritage';
   });
 
   // Sync theme changes reactively across other sections of the viewport
@@ -80,7 +76,7 @@ const Settings = () => {
       const saved = localStorage.getItem('gs-theme') || 'Light';
       setAppearanceTheme(saved === 'Auto' ? 'Light' : saved);
       
-      const savedPreset = localStorage.getItem('gs-theme-preset') || 'Classic Crimson';
+      const savedPreset = 'George Steuart Heritage';
       setActivePreset(savedPreset);
     };
     window.addEventListener('storage', handleStorageChange);
@@ -99,7 +95,7 @@ const Settings = () => {
 
   // Synchronize dynamic brand theme presets to :root
   useEffect(() => {
-    const preset = themePresets[activePreset] || themePresets['Classic Crimson'];
+    const preset = themePresets[activePreset] || themePresets['George Steuart Heritage'];
     const root = document.documentElement;
     root.style.setProperty('--color-brand-red', preset.primary);
     root.style.setProperty('--color-brand-red-dark', preset.dark);
@@ -210,7 +206,7 @@ const Settings = () => {
   ];
 
   return (
-    <div className="space-y-10 pb-12">
+    <div className="space-y-6 pb-10">
       {/* Hidden File Input */}
       <input 
         type="file"
@@ -294,7 +290,7 @@ const Settings = () => {
                          <button 
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
-                            className="bg-[#C8102E] text-white px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-[#A00D25] transition-all shadow-lg shadow-brand-red/10"
+                            className="bg-[#C41230] text-white px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-[#9E0E27] transition-all shadow-lg shadow-brand-red/10"
                          >
                            Upload New Photo
                          </button>
@@ -510,7 +506,7 @@ const Settings = () => {
                     ].map((pref) => (
                       <div key={pref.key} className="flex items-center justify-between p-4 bg-slate-50/50 hover:bg-slate-50 rounded-2xl border border-slate-100/50 transition-colors">
                         <div className="flex gap-4 items-start min-w-0 pr-4">
-                          <div className="w-10 h-10 rounded-xl bg-[#C8102E]/5 text-[#C8102E] flex items-center justify-center shrink-0">
+                          <div className="w-10 h-10 rounded-xl bg-[#C41230]/5 text-[#C41230] flex items-center justify-center shrink-0">
                             <pref.icon className="w-5 h-5" />
                           </div>
                           <div>
@@ -585,14 +581,14 @@ const Settings = () => {
                               onClick={() => setAppearanceTheme(mode.name)}
                               className={`p-5 rounded-2xl border text-left transition-all duration-300 relative group cursor-pointer ${
                                 isSelected 
-                                  ? 'bg-[#C8102E]/5 border-[#C8102E]/30 text-slate-850 shadow-md' 
+                                  ? 'bg-[#C41230]/5 border-[#C41230]/30 text-slate-850 shadow-md'
                                   : 'bg-white border-slate-100 hover:border-slate-200 text-slate-500'
                               }`}
                             >
                               <div className="flex items-center justify-between">
                                 <span className="text-xs font-black uppercase tracking-wider text-slate-800">{mode.name} Mode</span>
                                 <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
-                                  isSelected ? 'border-[#C8102E] bg-[#C8102E]' : 'border-slate-300'
+                                  isSelected ? 'border-[#C41230] bg-[#C41230]' : 'border-slate-300'
                                 }`}>
                                   {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
                                 </div>

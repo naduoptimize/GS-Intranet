@@ -72,7 +72,7 @@ const ForgotPasswordPage = () => {
     <div className="min-h-screen bg-[#F3F4F6] flex items-center justify-center p-0 lg:p-6 font-sans">
       
       {/* Main Container */}
-      <div className="w-full h-full lg:h-auto lg:max-w-[1200px] bg-white lg:rounded-[40px] shadow-2xl flex flex-col lg:flex-row overflow-hidden border border-slate-100">
+      <div className="w-full h-full lg:h-auto lg:max-w-[900px] bg-white lg:rounded-3xl shadow-2xl flex flex-col lg:flex-row overflow-hidden border border-slate-100">
         
         {/* Left Side: Dynamic Branding Panel */}
         <div className="hidden lg:block lg:w-1/2 relative overflow-hidden bg-brand-red">
@@ -84,12 +84,12 @@ const ForgotPasswordPage = () => {
         </div>
 
         {/* Right Side: Password Reset Form / Wizard */}
-        <div className="flex-1 bg-white p-8 md:p-16 flex flex-col justify-center min-h-[600px]">
+        <div className="flex-1 bg-white p-7 md:p-10 flex flex-col justify-center min-h-[480px]">
           <div className="max-w-[400px] mx-auto w-full">
             
             {/* Header / Logo */}
-            <div className="flex flex-col items-center mb-8">
-              <div className="w-16 h-16 bg-brand-red rounded-[20px] flex items-center justify-center shadow-xl p-3 mb-4">
+            <div className="flex flex-col items-center mb-6">
+              <div className="w-14 h-14 bg-brand-red rounded-2xl flex items-center justify-center shadow-xl p-3 mb-3">
                 <img src="/api_logo.png" alt="API" className="w-full h-full object-contain brightness-0 invert" />
               </div>
               <h1 className="text-2xl font-black text-slate-900 tracking-tight mb-1">

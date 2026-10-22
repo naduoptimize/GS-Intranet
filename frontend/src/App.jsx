@@ -4,12 +4,10 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
 import MainLayout from './layout/MainLayout';
 import Dashboard from './pages/Dashboard';
-import Feed from './pages/Feed';
+import AdminDashboard from './pages/AdminDashboard';
 import DocumentCenter from './pages/DocumentCenter';
 import AdminDocuments from './pages/AdminDocuments';
 import EmployeeDirectory from './pages/EmployeeDirectory';
-import ComingSoon365 from './pages/ComingSoon365';
-import ManualDirectory from './pages/ManualDirectory';
 import AdminAnalytics from './pages/AdminAnalytics';
 import AdminDirectory from './pages/AdminDirectory';
 import LoginPage from './pages/LoginPage';
@@ -17,7 +15,6 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import MySubsidiary from './pages/MySubsidiary';
 import SubsidiaryDetail from './pages/SubsidiaryDetail';
 import HolidayCalendar from './pages/HolidayCalendar';
-import HelpDesk from './pages/HelpDesk';
 import Settings from './pages/Settings';
 import AdminManagement from './pages/AdminManagement';
 import ForcePasswordChange from './pages/ForcePasswordChange';
@@ -27,17 +24,12 @@ import MemoriesWall from './pages/MemoriesWall';
 import AdminCalendar from './pages/AdminCalendar';
 import AdminMemories from './pages/AdminMemories';
 import DirectMessages from './pages/DirectMessages';
-import AdminAlerts from './pages/AdminAlerts'; // Admin alerts panel
-import AdminOffers from './pages/AdminOffers';
 import AdminSubsidiaries from './pages/AdminSubsidiaries';
-import ITServiceDesk from './pages/ITServiceDesk';
-import HRRequestCenter from './pages/HRRequestCenter';
-import TicketDetailView from './pages/TicketDetailView';
-import Offers from './pages/Offers';
-import Alerts from './pages/Alerts';
+import AdminCommunications from './pages/AdminCommunications';
+import CommunicationsHub from './pages/CommunicationsHub';
 
 // Protected Route Component
-const ProtectedRoute = ({ children, roles, departments }) => {
+const ProtectedRoute = ({ children, roles }) => {
   const { user, loading } = useAuth();
 
   if (loading) return (
@@ -48,13 +40,13 @@ const ProtectedRoute = ({ children, roles, departments }) => {
 
   if (!user) return <Navigate to="/login" />;
 
-  if (roles && !roles.includes(user.role)) {
-    return <Navigate to="/" />;
-  }
+  const normalizedUserRole = user.role?.replace('_', '') || 'employee';
 
-  // Department-level isolation for sub-admins
-  if (user.role === 'sub_admin' && departments && !departments.some(d => user.department?.toLowerCase() === d.toLowerCase())) {
-    return <Navigate to="/" />;
+  if (roles) {
+    const normalizedRoles = roles.map(r => r.replace('_', ''));
+    if (!normalizedRoles.includes(normalizedUserRole) && !roles.includes(user.role)) {
+      return <Navigate to="/" />;
+    }
   }
 
   if (user.needs_password_change && window.location.pathname !== '/force-password-change') {
@@ -75,16 +67,8 @@ function App() {
       root.classList.remove('dark');
     }
 
-    // Restore Theme Preset custom variables
-    const themePresets = {
-      'Classic Crimson': { primary: '#C8102E', dark: '#A30D25', light: '#FDECEF', sidebarDark: '#A30D25' },
-      'Teas Emerald': { primary: '#10B981', dark: '#065F46', light: '#ECFDF5', sidebarDark: '#065F46' },
-      'Citrus Sunrise': { primary: '#F59E0B', dark: '#D97706', light: '#FEF3C7', sidebarDark: '#D97706' },
-      'Royal Velvet': { primary: '#8B5CF6', dark: '#6D28D9', light: '#F5F3FF', sidebarDark: '#6D28D9' },
-      'Ocean Breeze': { primary: '#3B82F6', dark: '#1D4ED8', light: '#EFF6FF', sidebarDark: '#1D4ED8' }
-    };
-    const savedPreset = localStorage.getItem('gs-theme-preset') || 'Classic Crimson';
-    const preset = themePresets[savedPreset] || themePresets['Classic Crimson'];
+    const preset = { primary: '#C41230', dark: '#9E0E27', light: '#FFF0F3', sidebarDark: '#C41230' };
+    localStorage.setItem('gs-theme-preset', 'George Steuart Heritage');
     root.style.setProperty('--color-brand-red', preset.primary);
     root.style.setProperty('--color-brand-red-dark', preset.dark);
     root.style.setProperty('--color-brand-red-light', preset.light);
@@ -113,95 +97,81 @@ function App() {
             </ProtectedRoute>
           }>
             <Route index element={<Dashboard />} />
-            <Route path="feed" element={<Feed />} />
+            <Route path="feed" element={<CommunicationsHub />} />
             <Route path="subsidiary" element={<MySubsidiary />} />
             <Route path="subsidiary/:id" element={<SubsidiaryDetail />} />
             <Route path="documents" element={<DocumentCenter />} />
             <Route path="directory" element={<EmployeeDirectory />} />
-            <Route path="365-directory" element={<ComingSoon365 />} />
-            <Route path="manual-directory" element={<ManualDirectory />} />
+            <Route path="365-directory" element={<Navigate to="/directory" replace />} />
+            <Route path="manual-directory" element={<Navigate to="/directory" replace />} />
             <Route path="calendar" element={<HolidayCalendar />} />
-            <Route path="help" element={<HelpDesk />} />
+            <Route path="help" element={<Navigate to="/" replace />} />
             <Route path="settings" element={<Settings />} />
             <Route path="news" element={<News />} />
             <Route path="memories" element={<MemoriesWall />} />
             <Route path="messages" element={<DirectMessages />} />
-            <Route path="offers" element={<Offers />} />
-            <Route path="alerts" element={<Alerts />} />
+            <Route path="communications" element={<Navigate to="/feed" replace />} />
+            <Route path="offers" element={<CommunicationsHub />} />
+            <Route path="alerts" element={<CommunicationsHub />} />
             
             {/* Admin Only Routes */}
+            <Route path="admin/dashboard" element={
+              <ProtectedRoute roles={['superadmin', 'groupadmin']}>
+                <AdminDashboard />
+              </ProtectedRoute>
+            } />
             <Route path="admin/analytics" element={
-              <ProtectedRoute roles={['super_admin', 'sub_admin', 'it_admin', 'hr_admin']}>
+              <ProtectedRoute roles={['superadmin', 'groupadmin', 'subadmin']}>
                 <AdminAnalytics />
               </ProtectedRoute>
             } />
-            <Route path="admin/tickets" element={
-              <ProtectedRoute roles={['super_admin', 'sub_admin', 'it_admin', 'hr_admin']}>
-                <HelpDesk />
-              </ProtectedRoute>
-            } />
-            <Route path="admin/tickets/it" element={
-              <ProtectedRoute roles={['super_admin', 'sub_admin', 'it_admin']} departments={['it']}>
-                <ITServiceDesk />
-              </ProtectedRoute>
-            } />
-            <Route path="admin/tickets/it/:id" element={
-              <ProtectedRoute roles={['super_admin', 'sub_admin', 'it_admin', 'it_staff']} departments={['it']}>
-                <TicketDetailView department="it" />
-              </ProtectedRoute>
-            } />
-            <Route path="admin/tickets/hr" element={
-              <ProtectedRoute roles={['super_admin', 'sub_admin', 'hr_admin']} departments={['hr']}>
-                <HRRequestCenter />
-              </ProtectedRoute>
-            } />
-            <Route path="admin/tickets/hr/:id" element={
-              <ProtectedRoute roles={['super_admin', 'sub_admin', 'hr_admin', 'hr_staff']} departments={['hr']}>
-                <TicketDetailView department="hr" />
-              </ProtectedRoute>
-            } />
             <Route path="admin/directory" element={
-              <ProtectedRoute roles={['super_admin', 'sub_admin', 'it_admin', 'hr_admin']}>
+              <ProtectedRoute roles={['superadmin', 'groupadmin', 'subadmin']}>
                 <AdminDirectory />
               </ProtectedRoute>
             } />
             <Route path="admin/management" element={
-              <ProtectedRoute roles={['super_admin', 'sub_admin', 'it_admin', 'hr_admin']}>
+              <ProtectedRoute roles={['superadmin', 'groupadmin', 'subadmin']}>
                 <AdminManagement />
               </ProtectedRoute>
             } />
             <Route path="admin/news" element={
-              <ProtectedRoute roles={['super_admin', 'sub_admin', 'it_admin', 'hr_admin']}>
+              <ProtectedRoute roles={['superadmin', 'groupadmin', 'subadmin']}>
                 <AdminNews />
               </ProtectedRoute>
             } />
             <Route path="admin/documents" element={
-              <ProtectedRoute roles={['super_admin', 'sub_admin', 'it_admin', 'hr_admin']}>
+              <ProtectedRoute roles={['superadmin', 'groupadmin', 'subadmin']}>
                 <AdminDocuments />
               </ProtectedRoute>
             } />
             <Route path="admin/calendar" element={
-              <ProtectedRoute roles={['super_admin', 'sub_admin', 'it_admin', 'hr_admin']}>
+              <ProtectedRoute roles={['superadmin', 'groupadmin', 'subadmin']}>
                 <AdminCalendar />
               </ProtectedRoute>
             } />
+            <Route path="admin/communications" element={
+              <ProtectedRoute roles={['superadmin', 'groupadmin', 'subadmin']}>
+                <AdminCommunications />
+              </ProtectedRoute>
+            } />
             <Route path="admin/alerts" element={
-              <ProtectedRoute roles={['super_admin', 'sub_admin', 'it_admin', 'hr_admin']}>
-                <AdminAlerts />
+              <ProtectedRoute roles={['superadmin', 'groupadmin', 'subadmin']}>
+                <AdminCommunications />
               </ProtectedRoute>
             } />
             <Route path="admin/offers" element={
-              <ProtectedRoute roles={['super_admin', 'sub_admin', 'it_admin', 'hr_admin']}>
-                <AdminOffers />
+              <ProtectedRoute roles={['superadmin', 'groupadmin', 'subadmin']}>
+                <AdminCommunications />
               </ProtectedRoute>
             } />
             <Route path="admin/subsidiaries" element={
-              <ProtectedRoute roles={['super_admin']}>
+              <ProtectedRoute roles={['superadmin', 'groupadmin']}>
                 <AdminSubsidiaries />
               </ProtectedRoute>
             } />
             <Route path="admin/memories" element={
-              <ProtectedRoute roles={['super_admin', 'sub_admin', 'it_admin', 'hr_admin']}>
+              <ProtectedRoute roles={['superadmin', 'groupadmin', 'subadmin']}>
                 <AdminMemories />
               </ProtectedRoute>
             } />

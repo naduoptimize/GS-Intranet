@@ -258,7 +258,7 @@ const DirectMessages = () => {
   const messageGroups = groupMessages();
 
   return (
-    <div className="flex flex-col h-[calc(100vh-125px)] md:h-[calc(100vh-180px)] lg:h-[calc(100vh-230px)] overflow-hidden bg-slate-50/50 rounded-[32px] border border-slate-100 shadow-sm relative">
+    <div className="flex flex-col h-[calc(100vh-105px)] lg:h-[calc(100vh-130px)] overflow-hidden bg-slate-50/50 rounded-2xl border border-slate-100 shadow-sm relative">
       {/* Decorative Blur BG */}
       <div className="absolute top-0 right-0 w-80 h-80 bg-brand-red/5 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-80 h-80 bg-rose-500/5 rounded-full blur-3xl pointer-events-none" />

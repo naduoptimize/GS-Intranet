@@ -2,10 +2,11 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 const { createNotification } = require('../utils/notifications');
+const { isSuperOrGroupAdmin, isSubAdmin } = require('../utils/roles');
 
-// Get all posts (Global + User's Subsidiary, or All if no subsidiary provided)
+// Get all posts (Global + User's Subsidiary, or All if super/group admin queries)
 router.get('/', async (req, res) => {
-    const { subsidiary_id, user_id } = req.query;
+    const { subsidiary_id, user_id, role } = req.query;
     
     try {
         let query = `
@@ -30,9 +31,20 @@ router.get('/', async (req, res) => {
         `;
 
         let whereClauses = [];
-        if (subsidiary_id && subsidiary_id !== 'undefined' && subsidiary_id !== 'null' && subsidiary_id !== '') {
-            whereClauses.push("(p.visibility = 'global' OR p.subsidiary_id = ?)");
+
+        if (isSuperOrGroupAdmin(role)) {
+            // Super Admin & Group Admin: if specific subsidiary filter requested, show that subsidiary + global, else show all
+            if (subsidiary_id && subsidiary_id !== 'undefined' && subsidiary_id !== 'null' && subsidiary_id !== '' && subsidiary_id !== 'all') {
+                whereClauses.push("(p.visibility = 'global' OR p.subsidiary_id IS NULL OR p.subsidiary_id = ?)");
+                params.push(subsidiary_id);
+            }
+        } else if (subsidiary_id && subsidiary_id !== 'undefined' && subsidiary_id !== 'null' && subsidiary_id !== '') {
+            // Sub Admin or Employee: only see global posts OR posts specifically belonging to their subsidiary
+            whereClauses.push("(p.visibility = 'global' OR p.subsidiary_id IS NULL OR p.subsidiary_id = ?)");
             params.push(subsidiary_id);
+        } else {
+            // No subsidiary: only global
+            whereClauses.push("(p.visibility = 'global' OR p.subsidiary_id IS NULL)");
         }
 
         if (whereClauses.length > 0) {
@@ -99,9 +111,23 @@ router.post('/:id/comment', async (req, res) => {
     const { user_id, content } = req.body;
     const post_id = req.params.id;
     try {
-        await db.execute('INSERT INTO comments (post_id, user_id, content) VALUES (?, ?, ?)', [post_id, user_id, content]);
-        res.json({ message: 'Comment added' });
+        const [result] = await db.execute('INSERT INTO comments (post_id, user_id, content) VALUES (?, ?, ?)', [post_id, user_id, content]);
+        
+        // Notify post author
+        const [postRows] = await db.execute('SELECT author_id, content FROM posts WHERE id = ?', [post_id]);
+        if (postRows.length > 0 && postRows[0].author_id !== user_id) {
+            const [commenter] = await db.execute('SELECT full_name FROM users WHERE id = ?', [user_id]);
+            const commenterName = commenter[0]?.full_name || 'Someone';
+            await createNotification({
+                type: 'post',
+                message: `${commenterName} commented on your post: "${content.substring(0, 30)}..."`,
+                link: '/feed'
+            });
+        }
+
+        res.status(201).json({ id: result.insertId, message: 'Comment added' });
     } catch (err) {
+        console.error(err);
         res.status(500).json({ message: 'Server error' });
     }
 });
@@ -125,14 +151,14 @@ router.get('/:id/comments', async (req, res) => {
     }
 });
 
-// Delete a comment (only the comment owner)
+// Delete a comment (only the comment owner or admin)
 router.delete('/:postId/comments/:commentId', async (req, res) => {
     const { commentId } = req.params;
-    const { user_id } = req.body;
+    const { user_id, role } = req.body;
     try {
         const [comment] = await db.execute('SELECT * FROM comments WHERE id = ?', [commentId]);
         if (comment.length === 0) return res.status(404).json({ message: 'Comment not found' });
-        if (comment[0].user_id !== parseInt(user_id)) {
+        if (comment[0].user_id !== parseInt(user_id) && !isSuperOrGroupAdmin(role)) {
             return res.status(403).json({ message: 'Not authorized to delete this comment' });
         }
         await db.execute('DELETE FROM comments WHERE id = ?', [commentId]);
@@ -145,13 +171,33 @@ router.delete('/:postId/comments/:commentId', async (req, res) => {
 
 // Create a post
 router.post('/', async (req, res) => {
-    const { author_id, content, image_url, type, visibility, subsidiary_id } = req.body;
+    const { author_id, content, image_url, type, visibility, subsidiary_id, role, user_subsidiary_id } = req.body;
     
     try {
-        const subId = visibility === 'global' ? null : subsidiary_id;
+        let finalVisibility = visibility || 'global';
+        let subId = subsidiary_id;
+
+        if (isSubAdmin(role)) {
+            // Sub Admin can ONLY post for their own subsidiary!
+            finalVisibility = 'subsidiary';
+            subId = user_subsidiary_id || subsidiary_id;
+        } else if (isSuperOrGroupAdmin(role)) {
+            // Super Admin or Group Admin can post Global or for a specific subsidiary
+            if (finalVisibility === 'global') {
+                subId = null;
+            }
+        } else {
+            // Regular employee posting in feed: defaults to their subsidiary or global depending on UI
+            if (finalVisibility === 'global') {
+                subId = null;
+            } else {
+                subId = user_subsidiary_id || subsidiary_id || null;
+            }
+        }
+
         const [result] = await db.execute(
             'INSERT INTO posts (author_id, content, image_url, type, visibility, subsidiary_id) VALUES (?, ?, ?, ?, ?, ?)',
-            [author_id, content, image_url, type, visibility, subId]
+            [author_id, content, image_url || null, type || 'general', finalVisibility, subId || null]
         );
         
         // Send notifications
@@ -173,14 +219,32 @@ router.post('/', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
     const postId = req.params.id;
+    const { role, user_subsidiary_id, user_id } = req.query;
+
     try {
+        const [postRows] = await db.execute('SELECT * FROM posts WHERE id = ?', [postId]);
+        if (postRows.length === 0) {
+            return res.status(404).json({ message: 'Post not found' });
+        }
+
+        const post = postRows[0];
+
+        // Permissions check
+        if (!isSuperOrGroupAdmin(role)) {
+            if (isSubAdmin(role)) {
+                if (Number(post.subsidiary_id) !== Number(user_subsidiary_id) && post.author_id !== parseInt(user_id)) {
+                    return res.status(403).json({ message: 'Not authorized to delete this post' });
+                }
+            } else if (post.author_id !== parseInt(user_id)) {
+                return res.status(403).json({ message: 'Not authorized to delete this post' });
+            }
+        }
+
         // Delete related reactions and comments first to maintain referential integrity
         await db.execute('DELETE FROM reactions WHERE post_id = ?', [postId]);
         await db.execute('DELETE FROM comments WHERE post_id = ?', [postId]);
-        const [result] = await db.execute('DELETE FROM posts WHERE id = ?', [postId]);
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: 'Post not found' });
-        }
+        await db.execute('DELETE FROM posts WHERE id = ?', [postId]);
+
         res.json({ message: 'Post deleted successfully' });
     } catch (err) {
         console.error(err);
@@ -191,15 +255,39 @@ router.delete('/:id', async (req, res) => {
 // Update a post
 router.put('/:id', async (req, res) => {
     const postId = req.params.id;
-    const { content, type, visibility, subsidiary_id, image_url } = req.body;
+    const { content, type, visibility, subsidiary_id, image_url, role, user_subsidiary_id, user_id } = req.body;
     try {
-        const [result] = await db.execute(
-            'UPDATE posts SET content = ?, type = ?, visibility = ?, subsidiary_id = ?, image_url = ? WHERE id = ?',
-            [content, type, visibility, visibility === 'global' ? null : subsidiary_id, image_url || null, postId]
-        );
-        if (result.affectedRows === 0) {
+        const [postRows] = await db.execute('SELECT * FROM posts WHERE id = ?', [postId]);
+        if (postRows.length === 0) {
             return res.status(404).json({ message: 'Post not found' });
         }
+
+        const post = postRows[0];
+
+        if (!isSuperOrGroupAdmin(role)) {
+            if (isSubAdmin(role)) {
+                if (Number(post.subsidiary_id) !== Number(user_subsidiary_id) && post.author_id !== parseInt(user_id)) {
+                    return res.status(403).json({ message: 'Not authorized to update this post' });
+                }
+            } else if (post.author_id !== parseInt(user_id)) {
+                return res.status(403).json({ message: 'Not authorized to update this post' });
+            }
+        }
+
+        let finalVisibility = visibility || post.visibility;
+        let subId = subsidiary_id;
+        if (isSubAdmin(role)) {
+            finalVisibility = 'subsidiary';
+            subId = user_subsidiary_id;
+        } else if (finalVisibility === 'global') {
+            subId = null;
+        }
+
+        await db.execute(
+            'UPDATE posts SET content = ?, type = ?, visibility = ?, subsidiary_id = ?, image_url = ? WHERE id = ?',
+            [content, type || 'general', finalVisibility || 'global', subId || null, image_url || null, postId]
+        );
+
         res.json({ message: 'Post updated successfully' });
     } catch (err) {
         console.error(err);
@@ -220,7 +308,7 @@ router.put('/:id/pin', async (req, res) => {
     }
 });
 
-// Toggle flag status of a post (flag as inappropriate)
+// Toggle flag status of a post
 router.put('/:id/flag', async (req, res) => {
     const postId = req.params.id;
     const { is_flagged } = req.body;

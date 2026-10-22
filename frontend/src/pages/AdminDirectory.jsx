@@ -1,32 +1,34 @@
 import { useState, useEffect, useMemo } from 'react';
+import AdminPageHeader from '../components/AdminPageHeader';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, Search, Plus, Edit2, Trash2, Key, X, Check,
   ChevronDown, Building2, Shield, UserCheck, AlertTriangle, RefreshCw,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, Cloud, CloudRain, Sparkles
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import axios from 'axios';
 
 const API = 'http://localhost:5000/api';
 
-const ROLES = ['employee', 'sub_admin', 'it_admin', 'hr_admin', 'it_staff', 'hr_staff', 'super_admin'];
+const ROLES = ['superadmin', 'groupadmin', 'subadmin', 'employee'];
 const ROLE_LABELS = { 
-  employee: 'Employee', 
-  sub_admin: 'Sub Admin', 
-  it_admin: 'IT Admin', 
-  hr_admin: 'HR Admin', 
-  it_staff: 'IT Staff',
-  hr_staff: 'HR Staff',
-  super_admin: 'Super Admin' 
+  superadmin: 'Super Admin', 
+  groupadmin: 'Group Admin', 
+  subadmin: 'Sub Admin', 
+  employee: 'Employee',
+  super_admin: 'Super Admin',
+  group_admin: 'Group Admin',
+  sub_admin: 'Sub Admin'
 };
 const ROLE_COLORS = { 
-  employee: '#6366f1', 
-  sub_admin: '#f59e0b', 
-  it_admin: '#3b82f6', 
-  hr_admin: '#ec4899', 
-  it_staff: '#06b6d4',
-  hr_staff: '#f43f5e',
-  super_admin: '#C8102E' 
+  superadmin: '#C41230', 
+  groupadmin: '#9E0E27', 
+  subadmin: '#f59e0b', 
+  employee: '#6366f1',
+  super_admin: '#C41230',
+  group_admin: '#9E0E27',
+  sub_admin: '#f59e0b'
 };
 
 // ── MODAL WRAPPER ─────────────────────────────────────────
@@ -69,8 +71,10 @@ const Select = ({ children, ...props }) => (
 // ── MAIN COMPONENT ────────────────────────────────────────
 export default function AdminDirectory() {
   const { user: currentUser } = useAuth();
-  const isSuperAdmin = currentUser?.role === 'super_admin';
-  const isSubAdmin = currentUser?.role !== 'super_admin';
+  const isSuperAdmin = currentUser?.role === 'superadmin' || currentUser?.role === 'super_admin';
+  const isGroupAdmin = currentUser?.role === 'groupadmin' || currentUser?.role === 'group_admin';
+  const isSuperOrGroupAdmin = isSuperAdmin || isGroupAdmin;
+  const isSubAdmin = currentUser?.role === 'subadmin' || currentUser?.role === 'sub_admin';
 
   const [employees, setEmployees] = useState([]);
   const [subsidiaries, setSubsidiaries] = useState([]);
@@ -78,6 +82,7 @@ export default function AdminDirectory() {
   const [filterRole, setFilterRole] = useState('All');
   const [filterSub, setFilterSub] = useState('All');
   const [loading, setLoading] = useState(true);
+  const [syncingAzure, setSyncingAzure] = useState(false);
 
   // Modal states
   const [showAdd, setShowAdd] = useState(false);
@@ -106,20 +111,24 @@ export default function AdminDirectory() {
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
+    setTimeout(() => setToast(null), 3500);
   };
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const usersUrl = isSubAdmin ? `${API}/users?subsidiaryId=${currentUser.subsidiary_id}` : `${API}/users`;
+      const usersUrl = isSubAdmin 
+        ? `${API}/users?subsidiaryId=${currentUser.subsidiary_id}&role=${currentUser.role}&user_subsidiary_id=${currentUser.subsidiary_id}` 
+        : `${API}/users`;
       const [empRes, subRes] = await Promise.all([
         fetch(usersUrl),
         fetch(`${API}/subsidiaries`)
       ]);
       setEmployees(await empRes.json());
       setSubsidiaries(await subRes.json());
-    } catch { showToast('Failed to load data', 'error'); }
+    } catch { 
+      showToast('Failed to load data', 'error'); 
+    }
     setLoading(false);
   };
 
@@ -130,6 +139,28 @@ export default function AdminDirectory() {
     }
   }, [currentUser]);
 
+  // ── AZURE AD SYNC HANDLER ──────────────────────────────
+  const handleAzureSync = async () => {
+    setSyncingAzure(true);
+    try {
+      const payload = isSubAdmin ? {
+        subsidiary_id: currentUser?.subsidiary_id,
+        role: currentUser?.role
+      } : {
+        role: currentUser?.role
+      };
+
+      const res = await axios.post(`${API}/users/office365/sync`, payload);
+      showToast(res.data.message || 'Azure synchronization complete!');
+      fetchData();
+    } catch (err) {
+      console.error(err);
+      showToast(err.response?.data?.message || 'Failed to sync with Azure Active Directory', 'error');
+    } finally {
+      setSyncingAzure(false);
+    }
+  };
+
   // ── FILTERED LIST ──────────────────────────────────────
   const filtered = employees.filter(e => {
     const matchSearch = e.full_name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -137,7 +168,7 @@ export default function AdminDirectory() {
       e.department?.toLowerCase().includes(search.toLowerCase());
     const matchRole = filterRole === 'All'
       ? true
-      : e.role === filterRole;
+      : e.role?.replace('_', '') === filterRole.replace('_', '');
     const matchSub = filterSub === 'All' || e.subsidiary_name === filterSub;
     return matchSearch && matchRole && matchSub;
   });
@@ -165,45 +196,84 @@ export default function AdminDirectory() {
     if (!form.full_name || !form.email || !form.password) return showToast('Name, email and password are required', 'error');
     setSaving(true);
     try {
-      const res = await fetch(`${API}/users`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
+      const payload = {
+        ...form,
+        creator_role: currentUser?.role,
+        creator_subsidiary_id: currentUser?.subsidiary_id
+      };
+      const res = await fetch(`${API}/users`, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify(payload) 
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
       showToast('Employee added successfully');
       setShowAdd(false);
       setForm(getInitialForm());
       fetchData();
-    } catch (err) { showToast(err.message || 'Failed to add employee', 'error'); }
+    } catch (err) { 
+      showToast(err.message || 'Failed to add employee', 'error'); 
+    }
     setSaving(false);
   };
 
   const handleEdit = async () => {
     setSaving(true);
     try {
-      const res = await fetch(`${API}/users/${editUser.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
-      if (!res.ok) throw new Error('Failed to update');
+      const payload = {
+        ...form,
+        creator_role: currentUser?.role,
+        creator_subsidiary_id: currentUser?.subsidiary_id
+      };
+      const res = await fetch(`${API}/users/${editUser.id}`, { 
+        method: 'PUT', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify(payload) 
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to update');
       showToast('Employee updated successfully');
       setEditUser(null);
       fetchData();
-    } catch (err) { showToast(err.message, 'error'); }
+    } catch (err) { 
+      showToast(err.message, 'error'); 
+    }
     setSaving(false);
   };
 
   const handleDelete = async () => {
     try {
-      await fetch(`${API}/users/${deleteUser.id}`, { method: 'DELETE' });
+      const res = await fetch(`${API}/users/${deleteUser.id}?creator_role=${currentUser?.role}&creator_subsidiary_id=${currentUser?.subsidiary_id}`, { 
+        method: 'DELETE' 
+      });
+      if (!res.ok) throw new Error('Failed to deactivate');
       showToast('Employee deactivated');
       setDeleteUser(null);
       fetchData();
-    } catch { showToast('Failed to deactivate', 'error'); }
+    } catch (e) { 
+      showToast(e.message || 'Failed to deactivate', 'error'); 
+    }
   };
 
   const handleReset = async () => {
     setSaving(true);
     try {
-      await fetch(`${API}/users/${resetUser.id}/reset-password`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ newPassword: 'GS@2026' }) });
+      const res = await fetch(`${API}/users/${resetUser.id}/reset-password`, { 
+        method: 'PATCH', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ 
+          newPassword: 'GS@2026',
+          creator_role: currentUser?.role,
+          creator_subsidiary_id: currentUser?.subsidiary_id
+        }) 
+      });
+      if (!res.ok) throw new Error('Failed to reset password');
       showToast('Password reset to GS@2026');
       setResetUser(null);
-    } catch { showToast('Failed to reset password', 'error'); }
+    } catch (err) { 
+      showToast(err.message || 'Failed to reset password', 'error'); 
+    }
     setSaving(false);
   };
 
@@ -225,10 +295,10 @@ export default function AdminDirectory() {
   };
 
   const stats = [
-    { label: 'Total Employees', value: employees.length, color: '#6366f1', gradient: 'from-indigo-500 to-blue-600' },
-    { label: '365 Employees', value: employees.filter(e => e.is_synced === 1 || e.is_synced === true).length, color: '#0078d4', gradient: 'from-blue-500 to-sky-600' },
-    { label: 'Manual Employees', value: employees.filter(e => !e.is_synced).length, color: '#f59e0b', gradient: 'from-amber-500 to-yellow-650' },
-    { label: 'Super & Sub Admins', value: employees.filter(e => e.role === 'super_admin' || e.role === 'sub_admin').length, color: '#C8102E', gradient: 'from-red-500 to-rose-600' }
+    { label: isSubAdmin ? `${currentUser?.subsidiary_name || 'Subsidiary'} Staff` : 'Total Employees', value: employees.length, color: '#6366f1', gradient: 'from-indigo-500 to-blue-600' },
+    { label: 'Azure 365 Synced', value: employees.filter(e => e.is_synced === 1 || e.is_synced === true).length, color: '#0078d4', gradient: 'from-blue-500 to-sky-600' },
+    { label: 'Manual Accounts', value: employees.filter(e => !e.is_synced).length, color: '#f59e0b', gradient: 'from-amber-500 to-yellow-650' },
+    { label: isSubAdmin ? 'Sub Admins' : 'Administrators', value: employees.filter(e => e.role === 'superadmin' || e.role === 'super_admin' || e.role === 'groupadmin' || e.role === 'group_admin' || e.role === 'subadmin' || e.role === 'sub_admin').length, color: '#C41230', gradient: 'from-red-500 to-rose-600' }
   ];
 
   return (
@@ -245,51 +315,35 @@ export default function AdminDirectory() {
         )}
       </AnimatePresence>
 
-      {/* HERO BANNER */}
-      <div className="px-4 sm:px-8 pt-4 sm:pt-8">
-        <div className="relative h-[220px] sm:h-[300px] md:h-[350px] w-full overflow-hidden rounded-[24px] sm:rounded-[36px] shadow-xl group">
-          <img 
-            src="/admin_premium_cover.png" 
-            alt="Directory" 
-            className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-900/50 to-transparent"/>
-          <div className="absolute inset-0 flex items-center px-6 sm:px-10 md:px-16">
-            <motion.div 
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6 }}
-              className="max-w-2xl"
+      <AdminPageHeader
+        icon={Users}
+        title={isSubAdmin ? `${currentUser?.subsidiary_name || 'Subsidiary'} Employee Manager` : 'Employee Manager'}
+        description={
+          isSubAdmin
+            ? `Manage employee profiles, credentials, and Azure Active Directory sync for ${currentUser?.subsidiary_name || 'your subsidiary'}.`
+            : 'Manage corporate employees, department assignments and access roles across group entities.'
+        }
+        actions={
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={handleAzureSync}
+              disabled={syncingAzure}
+              className="bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-slate-700 dark:text-white px-3.5 py-2.5 rounded-xl font-semibold text-xs flex items-center gap-2 transition-all disabled:opacity-50 cursor-pointer shadow-sm"
+              title="Sync employees from Microsoft Azure Active Directory"
             >
-              <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-brand-red/20 backdrop-blur-md border border-brand-red/30 rounded-full mb-2.5 sm:mb-3.5">
-                <div className="w-1.5 h-1.5 bg-brand-red rounded-full animate-pulse"/>
-                <span className="text-[8px] font-black text-brand-red uppercase tracking-[3px]">Identity Hub</span>
-              </div>
-              <h1 className="text-2xl sm:text-3xl md:text-5xl font-black text-white tracking-tighter leading-none mb-2">
-                Employee &amp; <span className="text-brand-red">Access Manager</span>
-              </h1>
-              <p className="text-white/60 text-xs sm:text-sm font-medium leading-relaxed max-w-lg hidden sm:block">
-                Manage all George Steuart employee directories, configure security roles, reset credentials, and handle entity subsidiary mappings.
-              </p>
-            </motion.div>
-          </div>
-        </div>
-      </div>
+              <Cloud className={`w-4 h-4 text-blue-500 ${syncingAzure ? 'animate-bounce' : ''}`} />
+              <span>{syncingAzure ? 'Syncing...' : isSubAdmin ? 'Sync Azure Staff' : 'Sync All Azure'}</span>
+            </button>
 
-      <div className="px-4 sm:px-8 md:px-10 -mt-10 sm:-mt-16 relative z-10">
-
-        {/* Title Action Bar */}
-        <div className="bg-white dark:bg-[#131B2E] p-5 sm:p-7 rounded-3xl border border-slate-100 dark:border-white/5 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4 mb-8">
-          <div>
-            <h2 className="text-lg font-black text-slate-800 dark:text-white tracking-tight">Active Profiles</h2>
-            <p className="text-slate-400 dark:text-slate-500 text-xs mt-0.5">Control administrative staff credentials & role privileges.</p>
+            <button 
+              onClick={() => { setForm(getInitialForm()); setShowAdd(true); }}
+              className="bg-brand-red hover:bg-[#a50f28] text-white px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold shadow-sm transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+            >
+              <Plus className="w-4 h-4" /> Add Employee
+            </button>
           </div>
-          <button onClick={() => { setForm(getInitialForm()); setShowAdd(true); }}
-            className="w-full sm:w-auto bg-brand-red text-white px-7 py-3.5 rounded-xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2.5 shadow-lg shadow-brand-red/20 hover:scale-105 active:scale-95 transition-all"
-          >
-            <Plus className="w-4 h-4" /> Add Employee
-          </button>
-        </div>
+        }
+      />
 
         {/* STATS */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -302,7 +356,6 @@ export default function AdminDirectory() {
               whileHover={{ y: -4, scale: 1.02 }}
               className="bg-white dark:bg-[#131B2E] rounded-2xl border border-slate-100 dark:border-white/5 p-5 shadow-sm hover:shadow-md transition-all flex items-center gap-4 relative overflow-hidden group"
             >
-              {/* Premium HSL Gradient Orb Overlay */}
               <div className={`absolute -top-6 -right-6 w-20 h-20 bg-gradient-to-br ${s.gradient} rounded-full opacity-10 dark:opacity-20 blur-xl group-hover:opacity-25 transition-opacity pointer-events-none`}/>
               
               <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-white/5 relative z-10" style={{ color: s.color }}>
@@ -328,16 +381,18 @@ export default function AdminDirectory() {
             <select value={filterRole} onChange={e => setFilterRole(e.target.value)}
               className="flex-1 lg:flex-none px-4 py-2.5 bg-slate-50 dark:bg-[#131B2E] border border-slate-100 dark:border-white/10 rounded-xl text-sm font-bold text-slate-700 dark:text-white outline-none focus:ring-4 focus:ring-brand-red/5 cursor-pointer">
               <option value="All">All Roles</option>
-              {ROLES.filter(r => !isSubAdmin || r !== 'super_admin').map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+              {ROLES.filter(r => !isSubAdmin || r === 'employee' || r === 'subadmin').map(r => (
+                <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+              ))}
             </select>
-            {!isSubAdmin && (
+            {isSuperOrGroupAdmin && (
               <select value={filterSub} onChange={e => setFilterSub(e.target.value)}
                 className="flex-1 lg:flex-none px-4 py-2.5 bg-slate-50 dark:bg-[#131B2E] border border-slate-100 dark:border-white/10 rounded-xl text-sm font-bold text-slate-700 dark:text-white outline-none focus:ring-4 focus:ring-brand-red/5 cursor-pointer">
                 <option value="All">All Subsidiaries</option>
                 {subNames.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             )}
-            <button onClick={fetchData} className="p-2.5 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 transition-all text-slate-400 hover:text-slate-700 dark:hover:text-white shrink-0">
+            <button onClick={fetchData} className="p-2.5 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 transition-all text-slate-400 hover:text-slate-700 dark:hover:text-white shrink-0 cursor-pointer" title="Refresh list">
               <RefreshCw className="w-4 h-4" />
             </button>
           </div>
@@ -360,174 +415,176 @@ export default function AdminDirectory() {
                   <th className="text-right px-6 py-5 text-[10px] font-black text-slate-400 dark:text-slate-555 uppercase tracking-widest">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50 dark:divide-white/5">
-                {loading ? (
-                  <tr><td colSpan={6} className="text-center py-16 text-slate-400 dark:text-slate-500 text-sm font-medium animate-pulse">Loading employees…</td></tr>
-                ) : filtered.length === 0 ? (
-                  <tr><td colSpan={6} className="text-center py-16 text-slate-400 dark:text-slate-500 text-sm font-medium">No employees found</td></tr>
-                ) : paginated.map((emp, i) => (
-                  <motion.tr key={emp.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }}
-                    className="hover:bg-slate-50/60 dark:hover:bg-white/5 transition-colors group">
-                    <td className="px-6 py-5">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-2xl overflow-hidden shrink-0 shadow-sm border border-slate-100 dark:border-white/10">
-                          <img src={emp.profile_pic || `https://ui-avatars.com/api/?name=${emp.full_name}&background=C8102E&color=fff&bold=true`}
-                            className="w-full h-full object-cover" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-black text-slate-800 dark:text-white">{emp.full_name}</p>
-                          <p className="text-xs text-slate-400 dark:text-slate-500 font-medium">{emp.email}</p>
-                        </div>
-                      </div>
+              <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                {paginated.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="text-center py-16 text-slate-400 dark:text-slate-500 font-bold text-sm">
+                      No employee profiles found.
                     </td>
-                    <td className="px-6 py-5">
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider border border-transparent dark:border-white/5"
-                        style={{ 
-                          background: `${ROLE_COLORS[emp.role] || '#6366f1'}15`, 
-                          color: ROLE_COLORS[emp.role] || '#6366f1'
-                        }}>
-                        <Shield className="w-3 h-3" />
-                        {ROLE_LABELS[emp.role] || emp.role}
-                      </span>
-                    </td>
-                    <td className="px-6 py-5">
-                      <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-350 font-bold">
-                        <Building2 className="w-3.5 h-3.5 text-slate-350 dark:text-slate-500" />
-                        {emp.subsidiary_name || '—'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-5">
-                      <p className="text-sm text-slate-700 dark:text-slate-300 font-bold">{emp.department || '—'}</p>
-                      <p className="text-xs text-slate-400 dark:text-slate-500 font-medium mt-0.5">{emp.job_title || ''}</p>
-                    </td>
-                    <td className="px-6 py-5">
-                      <p className="text-xs text-slate-500 dark:text-slate-400 font-bold">{emp.phone || '—'}</p>
-                    </td>
-                    <td className="px-6 py-5">
-                      <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => openEdit(emp)} title="Edit"
-                          className="w-8 h-8 flex items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-950/30 text-indigo-550 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors">
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        {emp.id !== currentUser.id && (
-                          <button onClick={() => setResetUser(emp)} title="Reset Password"
-                            className="w-8 h-8 flex items-center justify-center rounded-xl bg-amber-50 dark:bg-amber-950/30 text-amber-550 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors">
-                            <Key className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                        {(isSuperAdmin || (isSubAdmin && Number(emp.subsidiary_id) === Number(currentUser.subsidiary_id))) && emp.id !== currentUser.id && (
-                          <button onClick={() => setDeleteUser(emp)} title="Deactivate"
-                            className="w-8 h-8 flex items-center justify-center rounded-xl bg-red-50 dark:bg-red-950/30 text-red-500 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </motion.tr>
-                ))}
+                  </tr>
+                ) : (
+                  paginated.map((emp) => {
+                    const normalizedRole = emp.role ? emp.role.replace('_', '') : 'employee';
+                    return (
+                      <tr key={emp.id} className="hover:bg-slate-50/60 dark:hover:bg-white/5 transition-colors group">
+                        {/* Employee Name & Email */}
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/10 flex items-center justify-center font-black text-slate-600 dark:text-white uppercase text-xs shrink-0 overflow-hidden shadow-sm">
+                              {emp.profile_pic ? (
+                                <img src={emp.profile_pic} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                emp.full_name?.charAt(0) || 'U'
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-black text-slate-800 dark:text-white truncate group-hover:text-brand-red transition-colors">
+                                {emp.full_name}
+                              </p>
+                              <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 truncate">
+                                {emp.email}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Role */}
+                        <td className="px-6 py-4">
+                          <span 
+                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider shadow-sm"
+                            style={{ 
+                              backgroundColor: `${ROLE_COLORS[emp.role] || '#6366f1'}15`,
+                              color: ROLE_COLORS[emp.role] || '#6366f1',
+                              border: `1px solid ${ROLE_COLORS[emp.role] || '#6366f1'}30`
+                            }}
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: ROLE_COLORS[emp.role] || '#6366f1' }} />
+                            {ROLE_LABELS[emp.role] || emp.role}
+                          </span>
+                        </td>
+
+                        {/* Subsidiary */}
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300">
+                            <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span className="truncate max-w-[180px]">{emp.subsidiary_name || 'Group Wide'}</span>
+                          </div>
+                        </td>
+
+                        {/* Department & Title */}
+                        <td className="px-6 py-4">
+                          <p className="text-xs font-bold text-slate-700 dark:text-slate-300 truncate">{emp.department || '—'}</p>
+                          <p className="text-[10px] font-medium text-slate-400 truncate">{emp.job_title || 'Employee'}</p>
+                        </td>
+
+                        {/* Contact */}
+                        <td className="px-6 py-4">
+                          <p className="text-xs font-bold text-slate-700 dark:text-slate-300">{emp.phone || '—'}</p>
+                          {emp.is_synced ? (
+                            <span className="text-[9px] font-black text-blue-500 uppercase tracking-wider flex items-center gap-1 mt-0.5">
+                              <Cloud className="w-3 h-3" /> Azure AD
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-black text-amber-500 uppercase tracking-wider flex items-center gap-1 mt-0.5">
+                              <UserCheck className="w-3 h-3" /> Manual
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Actions */}
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => openEdit(emp)}
+                              className="p-2 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-slate-500 hover:text-indigo-600 transition-colors cursor-pointer"
+                              title="Edit Employee"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setResetUser(emp)}
+                              className="p-2 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-amber-50 dark:hover:bg-amber-950/30 text-slate-500 hover:text-amber-600 transition-colors cursor-pointer"
+                              title="Reset Password"
+                            >
+                              <Key className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setDeleteUser(emp)}
+                              className="p-2 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-500 hover:text-rose-600 transition-colors cursor-pointer"
+                              title="Deactivate Profile"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
 
-          {/* MOBILE CARDS */}
-          <div className="block md:hidden p-4 space-y-4 bg-slate-50/10 dark:bg-slate-900/10">
-            {loading ? (
-              <div className="text-center py-16 text-slate-400 dark:text-slate-500 text-sm font-medium animate-pulse">Loading employees…</div>
-            ) : filtered.length === 0 ? (
-              <div className="text-center py-16 text-slate-400 dark:text-slate-500 text-sm font-medium">No employees found</div>
-            ) : (
-              paginated.map((emp) => (
-                <div key={emp.id} className="bg-white dark:bg-[#131B2E] border border-slate-100 dark:border-white/5 rounded-2xl p-5 shadow-sm space-y-4">
-                  <div className="flex gap-4 items-center">
-                    <div className="w-12 h-12 rounded-2xl overflow-hidden shrink-0 shadow-sm border border-slate-100 dark:border-white/10">
-                      <img src={emp.profile_pic || `https://ui-avatars.com/api/?name=${emp.full_name}&background=C8102E&color=fff&bold=true`}
-                        className="w-full h-full object-cover" />
+          {/* MOBILE VIEW CARDS */}
+          <div className="md:hidden divide-y divide-slate-100 dark:divide-white/5">
+            {paginated.map((emp) => (
+              <div key={emp.id} className="p-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/10 flex items-center justify-center font-black text-slate-600 dark:text-white uppercase text-xs shrink-0">
+                      {emp.full_name?.charAt(0) || 'U'}
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-black text-slate-800 dark:text-white leading-tight">{emp.full_name}</p>
-                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 truncate">{emp.email}</p>
+                    <div>
+                      <p className="text-sm font-black text-slate-800 dark:text-white">{emp.full_name}</p>
+                      <p className="text-xs text-slate-400">{emp.email}</p>
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    <span className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 border border-transparent dark:border-white/5"
-                      style={{ 
-                        background: `${
-                          emp.role === 'sub_admin' && emp.department?.toLowerCase() === 'it' 
-                            ? '#3b82f6' 
-                            : emp.role === 'sub_admin' && emp.department?.toLowerCase() === 'hr' 
-                            ? '#ec4899' 
-                            : ROLE_COLORS[emp.role]
-                        }15`, 
-                        color: emp.role === 'sub_admin' && emp.department?.toLowerCase() === 'it' 
-                          ? '#3b82f6' 
-                          : emp.role === 'sub_admin' && emp.department?.toLowerCase() === 'hr' 
-                          ? '#ec4899' 
-                          : ROLE_COLORS[emp.role] 
-                      }}>
-                      <Shield className="w-2.5 h-2.5" /> 
-                      {emp.role === 'sub_admin' && emp.department?.toLowerCase() === 'it' 
-                        ? 'IT Admin' 
-                        : emp.role === 'sub_admin' && emp.department?.toLowerCase() === 'hr' 
-                        ? 'HR Admin' 
-                        : ROLE_LABELS[emp.role]}
-                    </span>
-                    <span className="px-2.5 py-1 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-lg text-[9px] font-black text-slate-655 dark:text-slate-350 uppercase tracking-widest flex items-center gap-1"><Building2 className="w-3 h-3 text-slate-400 dark:text-slate-500"/> {emp.subsidiary_name || 'Global'}</span>
-                  </div>
-                  <div className="flex justify-between items-center pt-3 border-t border-slate-50 dark:border-white/5">
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-black text-slate-700 dark:text-slate-300">{emp.department || '—'}</p>
-                      <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 mt-0.5">{emp.job_title || ''}</p>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <button onClick={() => openEdit(emp)} className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/10"><Edit2 className="w-3.5 h-3.5"/></button>
-                      {emp.id !== currentUser.id && (
-                        <button onClick={() => setResetUser(emp)} className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 text-amber-550 hover:bg-slate-100 dark:hover:bg-white/10"><Key className="w-3.5 h-3.5"/></button>
-                      )}
-                      {(isSuperAdmin || (isSubAdmin && Number(emp.subsidiary_id) === Number(currentUser.subsidiary_id))) && emp.id !== currentUser.id && (
-                        <button onClick={() => setDeleteUser(emp)} className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 text-red-500 hover:bg-slate-100 dark:hover:bg-white/10"><Trash2 className="w-3.5 h-3.5"/></button>
-                      )}
-                    </div>
+                  <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider"
+                    style={{ backgroundColor: `${ROLE_COLORS[emp.role] || '#6366f1'}15`, color: ROLE_COLORS[emp.role] || '#6366f1' }}>
+                    {ROLE_LABELS[emp.role] || emp.role}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
+                  <span>{emp.subsidiary_name || 'Group'}</span>
+                  <div className="flex gap-2">
+                    <button onClick={() => openEdit(emp)} className="p-1.5 rounded-lg bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300"><Edit2 className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => setResetUser(emp)} className="p-1.5 rounded-lg bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300"><Key className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => setDeleteUser(emp)} className="p-1.5 rounded-lg bg-slate-100 dark:bg-white/5 text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
                   </div>
                 </div>
-              ))
-            )}
+              </div>
+            ))}
           </div>
 
-          {/* PAGINATION CONTROLS */}
+          {/* PAGINATION */}
           {totalPages > 1 && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-5 border-t border-slate-100 dark:border-white/5 bg-slate-50/20 dark:bg-white/5">
-              <div className="text-xs font-bold text-slate-450 dark:text-slate-500 uppercase tracking-widest">
-                Showing {Math.min(filtered.length, (currentPage - 1) * itemsPerPage + 1)}-{Math.min(filtered.length, currentPage * itemsPerPage)} of {filtered.length} employees
-              </div>
-              <div className="flex items-center gap-3">
-                <button 
+            <div className="p-4 border-t border-slate-100 dark:border-white/5 flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-400">Page {currentPage} of {totalPages}</span>
+              <div className="flex gap-2">
+                <button
                   disabled={currentPage === 1}
                   onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  className="p-2.5 bg-white dark:bg-white/5 border border-slate-100 dark:border-white/10 text-slate-500 dark:text-slate-400 rounded-xl hover:bg-slate-50 dark:hover:bg-white/10 disabled:opacity-50 transition-all cursor-pointer shadow-sm disabled:cursor-not-allowed"
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 text-xs font-bold disabled:opacity-40"
                 >
-                  <ChevronLeft className="w-4 h-4" />
+                  Previous
                 </button>
-                <span className="text-[10px] font-black text-slate-450 dark:text-slate-500 uppercase tracking-widest">
-                  Page {currentPage} of {totalPages}
-                </span>
-                <button 
+                <button
                   disabled={currentPage === totalPages}
                   onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  className="p-2.5 bg-white dark:bg-white/5 border border-slate-100 dark:border-white/10 text-slate-500 dark:text-slate-400 rounded-xl hover:bg-slate-50 dark:hover:bg-white/10 disabled:opacity-50 transition-all cursor-pointer shadow-sm disabled:cursor-not-allowed"
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 text-xs font-bold disabled:opacity-40"
                 >
-                  <ChevronRight className="w-4 h-4" />
+                  Next
                 </button>
               </div>
             </div>
           )}
 
         </div>
-      </div>
 
       {/* ── ADD MODAL ── */}
       <AnimatePresence>
         {showAdd && (
-          <Modal title="Add New Employee" onClose={() => setShowAdd(false)}>
+          <Modal title={isSubAdmin ? `Add Employee — ${currentUser?.subsidiary_name || 'My Subsidiary'}` : "Add New Employee"} onClose={() => setShowAdd(false)}>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <Field label="Full Name"><Input placeholder="Full name" value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} /></Field>
@@ -536,33 +593,31 @@ export default function AdminDirectory() {
               <div className="grid grid-cols-2 gap-4">
                 <Field label="Password"><Input type="password" placeholder="Temp password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} /></Field>
                 <Field label="Role">
-                  <Select 
-                    value={form.role} 
-                    onChange={e => {
-                      const val = e.target.value;
-                      if (val === 'it_admin' || val === 'it_staff') {
-                        setForm({ ...form, role: val, department: 'IT' });
-                      } else if (val === 'hr_admin' || val === 'hr_staff') {
-                        setForm({ ...form, role: val, department: 'HR' });
-                      } else {
-                        setForm({ ...form, role: val });
-                      }
-                    }}
-                  >
-                    {ROLES.filter(r => !isSubAdmin || r !== 'super_admin').map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
-                  </Select>
+                  {isSubAdmin ? (
+                    <div className="w-full px-4 py-2.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-sm text-slate-700 dark:text-white font-semibold flex items-center gap-2">
+                      <UserCheck className="w-3.5 h-3.5 text-indigo-500" />
+                      <span>Employee (Standard Access)</span>
+                    </div>
+                  ) : (
+                    <Select 
+                      value={form.role} 
+                      onChange={e => setForm({ ...form, role: e.target.value })}
+                    >
+                      {ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+                    </Select>
+                  )}
                 </Field>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <Field label="Subsidiary">
                   {isSubAdmin ? (
                     <div className="w-full px-4 py-2.5 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-2 text-xs">
-                      <Building2 className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
-                      <span>{currentUser.subsidiary_name || 'My Entity'}</span>
+                      <Building2 className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>{currentUser.subsidiary_name || 'My Subsidiary'}</span>
                     </div>
                   ) : (
                     <Select value={form.subsidiary_id} onChange={e => setForm({ ...form, subsidiary_id: e.target.value })}>
-                      <option value="">— None —</option>
+                      <option value="">— None (Group) —</option>
                       {subsidiaries.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </Select>
                   )}
@@ -581,8 +636,8 @@ export default function AdminDirectory() {
                 <Field label="Date of Birth"><Input type="date" value={form.date_of_birth} onChange={e => setForm({ ...form, date_of_birth: e.target.value })} /></Field>
               </div>
               <div className="flex gap-3 pt-2">
-                <button onClick={() => setShowAdd(false)} className="flex-1 py-3 rounded-2xl border border-slate-200 dark:border-white/10 text-sm font-black text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5 transition-all">Cancel</button>
-                <button onClick={handleAdd} disabled={saving} className="flex-1 py-3 rounded-2xl bg-brand-red text-white text-sm font-black shadow-lg hover:bg-brand-red/90 transition-all disabled:opacity-60">
+                <button onClick={() => setShowAdd(false)} className="flex-1 py-3 rounded-2xl border border-slate-200 dark:border-white/10 text-sm font-black text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5 transition-all cursor-pointer">Cancel</button>
+                <button onClick={handleAdd} disabled={saving} className="flex-1 py-3 rounded-2xl bg-brand-red text-white text-sm font-black shadow-lg hover:bg-brand-red/90 transition-all disabled:opacity-60 cursor-pointer">
                   {saving ? 'Adding…' : 'Add Employee'}
                 </button>
               </div>
@@ -594,7 +649,7 @@ export default function AdminDirectory() {
       {/* ── EDIT MODAL ── */}
       <AnimatePresence>
         {editUser && (
-          <Modal title={`Edit — ${editUser.full_name}`} onClose={() => setEditUser(null)}>
+          <Modal title={`Edit Profile — ${editUser.full_name}`} onClose={() => setEditUser(null)}>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <Field label="Full Name"><Input value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} /></Field>
@@ -602,32 +657,28 @@ export default function AdminDirectory() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <Field label="Role">
-                  <Select 
-                    value={form.role} 
-                    onChange={e => {
-                      const val = e.target.value;
-                      if (val === 'it_admin' || val === 'it_staff') {
-                        setForm({ ...form, role: val, department: 'IT' });
-                      } else if (val === 'hr_admin' || val === 'hr_staff') {
-                        setForm({ ...form, role: val, department: 'HR' });
-                      } else {
-                        setForm({ ...form, role: val });
-                      }
-                    }}
-                    disabled={(!isSuperAdmin && !isSubAdmin) || form.role === 'super_admin'}
-                  >
-                    {ROLES.filter(r => !isSubAdmin || r !== 'super_admin').map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
-                  </Select>
+                  {isSubAdmin ? (
+                    <div className="w-full px-4 py-2.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-sm text-slate-700 dark:text-white font-semibold">
+                      <span>{ROLE_LABELS[form.role] || form.role}</span>
+                    </div>
+                  ) : (
+                    <Select 
+                      value={form.role} 
+                      onChange={e => setForm({ ...form, role: e.target.value })}
+                    >
+                      {ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+                    </Select>
+                  )}
                 </Field>
                 <Field label="Subsidiary">
                   {isSubAdmin ? (
                     <div className="w-full px-4 py-2.5 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-2 text-xs">
                       <Building2 className="w-3.5 h-3.5 text-emerald-500" />
-                      <span>{currentUser.subsidiary_name || 'My Entity'}</span>
+                      <span>{currentUser.subsidiary_name || 'My Subsidiary'}</span>
                     </div>
                   ) : (
                     <Select value={form.subsidiary_id} onChange={e => setForm({ ...form, subsidiary_id: e.target.value })}>
-                      <option value="">— None —</option>
+                      <option value="">— None (Group) —</option>
                       {subsidiaries.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </Select>
                   )}
@@ -645,12 +696,9 @@ export default function AdminDirectory() {
                 <Field label="Employee ID"><Input placeholder="e.g. GS-001" value={form.employee_no || ''} onChange={e => setForm({ ...form, employee_no: e.target.value })} /></Field>
                 <Field label="NIC Number"><Input placeholder="e.g. 199012345678" value={form.nic_number || ''} onChange={e => setForm({ ...form, nic_number: e.target.value })} /></Field>
               </div>
-              {!isSuperAdmin && !isSubAdmin && (
-                <p className="text-xs text-amber-500 font-medium flex items-center gap-1.5"><Shield className="w-3 h-3" /> Role changes require Admin access</p>
-              )}
               <div className="flex gap-3 pt-2">
-                <button onClick={() => setEditUser(null)} className="flex-1 py-3 rounded-2xl border border-slate-200 dark:border-white/10 text-sm font-black text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5 transition-all">Cancel</button>
-                <button onClick={handleEdit} disabled={saving} className="flex-1 py-3 rounded-2xl bg-indigo-600 text-white text-sm font-black shadow-lg hover:bg-indigo-700 transition-all disabled:opacity-60">
+                <button onClick={() => setEditUser(null)} className="flex-1 py-3 rounded-2xl border border-slate-200 dark:border-white/10 text-sm font-black text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5 transition-all cursor-pointer">Cancel</button>
+                <button onClick={handleEdit} disabled={saving} className="flex-1 py-3 rounded-2xl bg-indigo-600 text-white text-sm font-black shadow-lg hover:bg-indigo-700 transition-all disabled:opacity-60 cursor-pointer">
                   {saving ? 'Saving…' : 'Save Changes'}
                 </button>
               </div>
@@ -675,8 +723,8 @@ export default function AdminDirectory() {
                 </div>
               </div>
               <div className="flex gap-3">
-                <button onClick={() => setDeleteUser(null)} className="flex-1 py-3 rounded-2xl border border-slate-200 dark:border-white/10 text-sm font-black text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5 transition-all">Cancel</button>
-                <button onClick={handleDelete} className="flex-1 py-3 rounded-2xl bg-red-500 text-white text-sm font-black shadow-lg hover:bg-red-600 transition-all">
+                <button onClick={() => setDeleteUser(null)} className="flex-1 py-3 rounded-2xl border border-slate-200 dark:border-white/10 text-sm font-black text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5 transition-all cursor-pointer">Cancel</button>
+                <button onClick={handleDelete} className="flex-1 py-3 rounded-2xl bg-red-500 text-white text-sm font-black shadow-lg hover:bg-red-600 transition-all cursor-pointer">
                   Deactivate
                 </button>
               </div>
@@ -701,8 +749,8 @@ export default function AdminDirectory() {
                 </div>
               </div>
               <div className="flex gap-3">
-                <button onClick={() => setResetUser(null)} className="flex-1 py-3 rounded-2xl border border-slate-200 dark:border-white/10 text-sm font-black text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5 transition-all">Cancel</button>
-                <button onClick={handleReset} disabled={saving} className="flex-1 py-3 rounded-2xl bg-amber-500 text-white text-sm font-black shadow-lg hover:bg-amber-655 transition-all disabled:opacity-60">
+                <button onClick={() => setResetUser(null)} className="flex-1 py-3 rounded-2xl border border-slate-200 dark:border-white/10 text-sm font-black text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5 transition-all cursor-pointer">Cancel</button>
+                <button onClick={handleReset} disabled={saving} className="flex-1 py-3 rounded-2xl bg-amber-500 text-white text-sm font-black shadow-lg hover:bg-amber-655 transition-all disabled:opacity-60 cursor-pointer">
                   {saving ? 'Resetting…' : 'Reset Password'}
                 </button>
               </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import AdminPageHeader from '../components/AdminPageHeader';
 import {
   Heart,
   Search,
@@ -624,55 +625,20 @@ const HRRequestCenter = () => {
 
   return (
     <div className="min-h-screen bg-[#FDFBFB] pb-20">
-      {/* HR Hero */}
-      <motion.section
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative mb-10 rounded-[38px] overflow-hidden bg-gradient-to-br from-[#1E0B0E] via-[#5C1A27] to-[#BE123C] min-h-[300px] flex items-center shadow-xl shadow-rose-900/10"
-      >
-        <div className="absolute -top-16 -right-16 w-64 h-64 bg-rose-400/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute top-0 right-0 w-full h-full opacity-5 pointer-events-none"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          }}
-        />
-
-        <div className="relative z-10 px-8 sm:px-12 md:px-16 py-12 flex-1">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-rose-500/20 backdrop-blur-md border border-rose-400/30 rounded-full">
-              <Heart className="w-3.5 h-3.5 text-rose-300" />
-              <span className="text-[8px] font-black text-rose-300 uppercase tracking-widest">
-                People & Culture
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/20 border border-emerald-400/30 rounded-full">
-              <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-              <span className="text-[8px] font-black text-emerald-300 uppercase tracking-widest">Team Operations</span>
-            </div>
-          </div>
-
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter leading-none mb-3">
-            HR Request <span className="text-rose-300">Management Desk</span>
-          </h1>
-          <p className="text-rose-200/70 text-sm font-medium leading-relaxed max-w-lg mb-8">
-            Manage employee payroll inquiries, leaves, paperwork requests, and group policies. Monitor workload stats and reply to questions.
-          </p>
-
-          <div className="flex items-center gap-3 flex-wrap">
-            <button
-              onClick={() => handleExport('excel')}
-              className="px-5 py-3.5 bg-white/10 hover:bg-white/20 text-white border border-white/25 rounded-2xl font-black text-[10px] uppercase tracking-wider transition-all active:scale-95 flex items-center gap-1.5"
-            >
-              <Download className="w-4 h-4" /> Export Inbox
-            </button>
-          </div>
-        </div>
-
-        <div className="hidden lg:flex flex-col pr-16 opacity-25 text-white gap-3 select-none">
-          <Heart className="w-16 h-16" />
-          <Users className="w-12 h-12 ml-4" />
-        </div>
-      </motion.section>
+      <AdminPageHeader
+        section="People & Culture"
+        title="HR Request Center"
+        description="Manage payroll inquiries, leave requests, employee paperwork, and policy questions from one coordinated inbox."
+        actions={
+          <button
+            onClick={() => handleExport('excel')}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-red px-5 py-3 text-[10px] font-black uppercase tracking-wider text-white shadow-lg shadow-brand-red/15 transition-all hover:bg-brand-red-dark active:scale-95 lg:w-auto"
+          >
+            <Download className="h-4 w-4" /> Export Inbox
+          </button>
+        }
+        className="mb-8"
+      />
 
       <div className="max-w-7xl mx-auto px-4 md:px-6 space-y-8">
         

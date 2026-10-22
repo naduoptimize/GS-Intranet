@@ -127,7 +127,7 @@ const ManualDirectory = () => {
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative w-full rounded-[32px] overflow-hidden shadow-2xl mb-12 bg-gradient-to-r from-brand-red via-brand-red-dark to-slate-900 p-8 md:p-12 text-white flex flex-col md:flex-row items-center justify-between gap-6"
+        className="relative w-full rounded-2xl overflow-hidden shadow-lg mb-8 bg-gradient-to-r from-brand-red via-brand-red-dark to-slate-900 p-6 md:p-8 text-white flex flex-col md:flex-row items-center justify-between gap-5"
       >
         <div className="space-y-4 max-w-xl text-center md:text-left">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider bg-white/20 text-white border border-white/25">
@@ -162,7 +162,7 @@ const ManualDirectory = () => {
           {/* STATS ROW */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
             {[
-              { label: 'Total Manual Users', value: stats.total, icon: Users, color: '#C8102E', bg: '#FDECEF' },
+              { label: 'Total Manual Users', value: stats.total, icon: Users, color: '#C41230', bg: '#FDECEF' },
               { label: 'Active Organizations', value: stats.companiesCount, icon: Building2, color: '#6366f1', bg: '#eef2ff' },
               { label: 'Database Identity', value: stats.identityType, icon: Database, color: '#f59e0b', bg: '#fffbeb' },
               { label: 'Directory Status', value: stats.status, icon: CheckCircle, color: '#10b981', bg: '#ecfdf5', pulse: true },
@@ -203,8 +203,8 @@ const ManualDirectory = () => {
                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-[3px] mb-3">Filter by Company</p>
                 <div className="flex flex-col gap-1.5 max-h-72 overflow-y-auto custom-scrollbar pr-1">
                   {[{ id: 'all', name: 'All' }, ...companies.map(c => ({ id: c, name: c }))].map((comp, idx) => {
-                    const palette = ['#C8102E','#6366f1','#f59e0b','#10b981','#ec4899','#f97316','#8b5cf6'];
-                    const color = comp.name === 'All' ? '#C8102E' : palette[idx % palette.length];
+                    const palette = ['#C41230','#6366f1','#f59e0b','#10b981','#ec4899','#f97316','#8b5cf6'];
+                    const color = comp.name === 'All' ? '#C41230' : palette[idx % palette.length];
                     const active = activeFilter === comp.name;
                     const count = comp.name === 'All' ? employees.length : employees.filter(e => e.subsidiary_name === comp.name).length;
                     return (
@@ -378,8 +378,8 @@ const ManualDirectory = () => {
                     )}
                   </div>
                   <h3 className="text-xl font-black text-slate-800 dark:text-white tracking-tight">{selectedUser.full_name}</h3>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-[#C8102E] mt-1">
-                    {selectedUser.role?.replace('_', ' ') || 'Employee'}
+                  <p className="text-[10px] font-black uppercase tracking-widest text-[#C41230] mt-1">
+                    {selectedUser.role === 'superadmin' || selectedUser.role === 'super_admin' ? 'Super Admin' : selectedUser.role === 'groupadmin' || selectedUser.role === 'group_admin' ? 'Group Admin' : selectedUser.role === 'subadmin' || selectedUser.role === 'sub_admin' ? 'Sub Admin' : 'Employee'}
                   </p>
                 </div>
 

@@ -1,1084 +1,275 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  Search,
-  Filter,
-  Mail,
-  Phone,
-  ChevronRight,
-  ChevronLeft,
-  UserPlus,
-  LayoutGrid,
-  List,
-  MapPin,
-  Building2,
-  Users,
-  Briefcase,
-  Star,
-  CheckCircle2,
-  MessageSquare,
-  Network,
-  ArrowRight,
-  TrendingUp,
-  Zap,
-  Globe,
-  MoreHorizontal,
-  ExternalLink,
-  PhoneCall,
-  Video,
-  X,
-  ChevronDown,
-  ChevronUp
+  Building2, ChevronLeft, ChevronRight, Grid2X2, List, Mail, MapPin, Network,
+  MessageSquare, Phone, RefreshCw, Search, SlidersHorizontal, Users, X,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+
+const API_URL = 'http://localhost:5000/api';
+const PAGE_SIZE = 12;
+
+const avatarUrl = (employee) => employee.profile_pic || `https://ui-avatars.com/api/?name=${encodeURIComponent(employee.full_name || 'Employee')}&background=C41230&color=fff&bold=true`;
+const roleLabel = (role) => ({
+  superadmin: 'Super Admin', super_admin: 'Super Admin', groupadmin: 'Group Admin',
+  group_admin: 'Group Admin', subadmin: 'Sub Admin', sub_admin: 'Sub Admin', employee: 'Employee',
+}[role] || role?.replaceAll('_', ' ') || 'Employee');
+
+const BOARD = [
+  { name: 'Varuni Fernando', title: 'Director', image: 'https://georgesteuart.lk/img/Varuni-Fernando.jpg' },
+  { name: 'Dai Pathmananthan', title: 'Director', image: 'https://georgesteuart.lk/img/Dai-Pathmananthan.jpg' },
+  { name: 'Manoj Pilimatalawwe', title: 'Director', image: 'https://georgesteuart.lk/img/Manoj-Pilimatalawwe.jpg' },
+  { name: 'Eran Ranasinghe', title: 'Director', image: 'https://georgesteuart.lk/img/Eran-Ranasinghe.jpg' },
+  { name: 'Channe Wijemanne', title: 'Director', image: 'https://georgesteuart.lk/img/channe-wijemanne1.jpg' },
+];
+
+const OFFICIAL_LEADERS = [
+  { match: ['tea'], name: 'Dilukshan Fernando', title: 'COO / Director Sales, GS Teas', image: 'https://georgesteuart.lk/img/Dilukshan-Fernando.jpg' },
+  { match: ['hva', 'food'], name: 'Graham Stork', title: 'Director / CEO, HVA Foods', image: 'https://georgesteuart.lk/img/Graham-Stork.jpg' },
+  { match: ['health'], name: 'Eran Ranasinghe', title: 'Managing Director, GS Health', image: 'https://georgesteuart.lk/img/Eran-Ranasinghe-sm.jpg' },
+  { match: ['citrus', 'leisure'], name: 'Chandana Talwatte', title: 'Director / CEO, Citrus Group', image: 'https://georgesteuart.lk/img/Chandana-Talwatte.jpg' },
+  { match: ['insurance'], name: 'T. S. Arulanandan', title: 'Managing Director, GS Insurance Brokers', image: 'https://georgesteuart.lk/img/T.S.-Arulanandan.jpg' },
+  { match: ['asset', 'investment'], name: 'Sudath de Silva', title: 'Managing Director / CEO, GS Asset Management', image: 'https://georgesteuart.lk/img/Sudath-de-Silva.jpg' },
+  { match: ['consumer'], name: 'Tharanga Wickramasinghe', title: 'Director / CEO, GS Consumer', image: 'https://georgesteuart.lk/img/Tharanga-Wickramasinghe.jpg' },
+  { match: ['solution'], name: 'Suharshani Welegama', title: 'CEO, GS Solutions', image: 'https://georgesteuart.lk/img/suharshani-welegama.jpeg' },
+];
+
+const OfficialPerson = ({ person, featured = false }) => (
+  <div className={`flex items-center gap-3 ${featured ? 'flex-col text-center sm:flex-row sm:text-left' : ''}`}>
+    <img src={person.image} alt={person.name} onError={(event) => { event.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(person.name)}&background=C41230&color=fff&bold=true`; }} className={`${featured ? 'h-24 w-24 rounded-[24px]' : 'h-12 w-12 rounded-2xl'} shrink-0 border-2 border-white object-cover object-top shadow-lg`} />
+    <div className="min-w-0"><p className={`${featured ? 'text-lg' : 'text-[10px]'} font-black text-text-main dark:text-white`}>{person.name}</p><p className="mt-1 text-[7px] font-black uppercase tracking-[.12em] text-brand-red">{person.title}</p></div>
+  </div>
+);
+
+const CompanyHierarchy = ({ employees, subsidiaries, onSelect, onOpenDirectory }) => {
+  const hierarchy = subsidiaries.map((company) => {
+    const members = employees.filter((employee) => Number(employee.subsidiary_id) === Number(company.id));
+    const departments = [...new Set(members.map((employee) => employee.department).filter(Boolean))];
+    const directoryLeader = members.find((employee) => /director|manager|head|chief|ceo/i.test(`${employee.job_title || ''} ${employee.role || ''}`));
+    const companyName = company.name.toLowerCase();
+    const officialLeader = OFFICIAL_LEADERS.find((leader) => leader.match.some((term) => companyName.includes(term)));
+    return { ...company, members, departments, directoryLeader, officialLeader };
+  });
+
+  const chairman = { name: 'Sarva Ameresekere', title: 'Group Chairman', image: 'https://georgesteuart.lk/img/Sarva-Ameresekere.jpg' };
+
+  return (
+    <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6 rounded-[26px] border border-[#E8E0D7] bg-white p-4 shadow-[0_20px_55px_-42px_rgba(94,45,51,.35)] dark:border-white/[0.07] dark:bg-[#111827] sm:p-6">
+      <div className="text-center"><p className="text-[8px] font-black uppercase tracking-[.24em] text-brand-gold">Leadership structure</p><h2 className="mt-1 text-xl font-black tracking-tight text-text-main dark:text-white">George Steuart Group</h2><p className="mt-1 text-[9px] text-text-secondary">Official group leadership and subsidiary management</p></div>
+
+      <div className="mx-auto max-w-md rounded-[24px] border border-brand-red/15 bg-gradient-to-br from-brand-red-light to-white p-5 shadow-[0_20px_50px_-35px_rgba(196,18,48,.45)] dark:from-brand-red/10 dark:to-white/[0.03]">
+        <OfficialPerson person={chairman} featured />
+      </div>
+
+      <div className="mx-auto h-7 w-px bg-gradient-to-b from-brand-red to-brand-gold" />
+      <div><p className="mb-3 text-center text-[8px] font-black uppercase tracking-[.2em] text-text-secondary">Board of Directors</p><div className="grid grid-cols-2 gap-2.5 md:grid-cols-5">{BOARD.map((person, index) => <motion.div key={person.name} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * .05 }} className="rounded-2xl border border-[#EEE8E0] bg-brand-ivory/60 p-3 dark:border-white/[0.06] dark:bg-white/[0.03]"><OfficialPerson person={person} /></motion.div>)}</div></div>
+
+      <div className="mx-auto h-7 w-px bg-gradient-to-b from-brand-gold to-brand-gold/20" />
+      <div className="flex items-center gap-3"><div className="h-px flex-1 bg-[#EEE8E0] dark:bg-white/[0.06]" /><p className="text-[8px] font-black uppercase tracking-[.2em] text-brand-gold">Subsidiary leadership</p><div className="h-px flex-1 bg-[#EEE8E0] dark:bg-white/[0.06]" /></div>
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {hierarchy.map((company, index) => (
+          <motion.article key={company.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(index * .035, .35) }} className="group relative rounded-[20px] border border-[#EEE8E0] bg-brand-ivory/55 p-4 transition-all hover:-translate-y-0.5 hover:border-brand-gold/50 hover:bg-white hover:shadow-[0_18px_45px_-34px_rgba(158,14,39,.3)] dark:border-white/[0.06] dark:bg-white/[0.025] dark:hover:bg-white/[0.045]">
+            <div className="absolute left-1/2 top-[-21px] hidden h-5 w-px -translate-x-1/2 bg-brand-gold/25 xl:block" />
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-brand-red shadow-sm dark:bg-white/[0.07]"><Building2 className="h-4.5 w-4.5" /></div>
+              <div className="min-w-0 flex-1"><h3 className="truncate text-[11px] font-black text-text-main dark:text-white">{company.name}</h3><p className="mt-1 text-[8px] font-bold uppercase tracking-wider text-text-secondary">{company.members.length} team members · {company.departments.length} departments</p></div>
+              <span className="rounded-lg bg-brand-red-light px-2 py-1 text-[7px] font-black text-brand-red dark:bg-brand-red/10">{company.members.length}</span>
+            </div>
+
+            {company.officialLeader ? <div className="mt-4 rounded-xl border border-[#EEE8E0] bg-white p-2.5 dark:border-white/[0.06] dark:bg-white/[0.04]"><OfficialPerson person={company.officialLeader} /></div> : company.directoryLeader ? <button onClick={() => onSelect(company.directoryLeader)} className="mt-4 flex w-full items-center gap-3 rounded-xl border border-[#EEE8E0] bg-white p-2.5 text-left hover:border-brand-red/20 dark:border-white/[0.06] dark:bg-white/[0.04]"><img src={avatarUrl(company.directoryLeader)} alt={company.directoryLeader.full_name} className="h-9 w-9 rounded-xl object-cover" /><span className="min-w-0 flex-1"><span className="block truncate text-[9px] font-black text-text-main dark:text-white">{company.directoryLeader.full_name}</span><span className="block truncate text-[7px] font-bold uppercase text-brand-red">{company.directoryLeader.job_title || roleLabel(company.directoryLeader.role)}</span></span></button> : <p className="mt-4 rounded-xl border border-dashed border-[#E8E0D7] px-3 py-3 text-center text-[8px] text-text-secondary dark:border-white/10">Leader not listed in the official reference</p>}
+
+            <div className="mt-3 flex flex-wrap gap-1.5">{company.departments.slice(0, 4).map((item) => <span key={item} className="rounded-lg bg-white px-2 py-1 text-[7px] font-bold text-text-secondary shadow-sm dark:bg-white/[0.05]">{item}</span>)}{company.departments.length > 4 && <span className="rounded-lg px-2 py-1 text-[7px] font-black text-brand-red">+{company.departments.length - 4} more</span>}{!company.departments.length && <span className="text-[8px] text-text-secondary">No departments listed</span>}</div>
+          </motion.article>
+        ))}
+      </div>
+      <div className="flex flex-col items-center justify-between gap-3 rounded-2xl bg-[#261F20] px-5 py-4 text-white sm:flex-row"><div><p className="text-[10px] font-black">Employee Directory</p><p className="mt-0.5 text-[8px] text-white/50">Continue from leadership to all {employees.length.toLocaleString()} employee profiles.</p></div><button onClick={onOpenDirectory} className="flex items-center gap-2 rounded-xl bg-brand-red px-3 py-2 text-[8px] font-black uppercase tracking-wider transition-colors hover:bg-brand-red-dark"><Users className="h-3.5 w-3.5" />Open full directory</button></div>
+    </motion.section>
+  );
+};
 
 const EmployeeDirectory = () => {
   const { user: currentUser } = useAuth();
-  const isSubAdmin = currentUser?.role === 'sub_admin' || currentUser?.role === 'it_admin' || currentUser?.role === 'hr_admin';
   const navigate = useNavigate();
-
   const [employees, setEmployees] = useState([]);
   const [subsidiaries, setSubsidiaries] = useState([]);
-  const [directors, setDirectors] = useState([]);
-  const [expandedSubs, setExpandedSubs] = useState({});
-  const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState('grid');
-  const [activeTab, setActiveTab] = useState('Employees');
-  const [activeFilter, setActiveFilter] = useState('All');
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 6;
+  const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
+  const [subsidiary, setSubsidiary] = useState('all');
+  const [department, setDepartment] = useState('all');
+  const [tab, setTab] = useState('all');
+  const [view, setView] = useState('grid');
+  const [mode, setMode] = useState('directory');
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState(null);
 
-  const toggleSubExpand = (subId) => {
-    setExpandedSubs(prev => ({
-      ...prev,
-      [subId]: !prev[subId]
-    }));
-  };
-
-  const [isFullscreen, setIsFullscreen] = useState(false);
-
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => {
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
-    };
+  const loadDirectory = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [usersResult, subsidiariesResult] = await Promise.all([
+        axios.get(`${API_URL}/users`),
+        axios.get(`${API_URL}/subsidiaries`),
+      ]);
+      setEmployees(Array.isArray(usersResult.data) ? usersResult.data : []);
+      setSubsidiaries(Array.isArray(subsidiariesResult.data) ? subsidiariesResult.data : []);
+    } catch (requestError) {
+      console.error('Failed to load employee directory', requestError);
+      setError('The employee directory could not be loaded. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const handleFullScreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(err => {
-        console.error(`Error enabling fullscreen: ${err.message}`);
-      });
-    } else {
-      document.exitFullscreen();
-    }
-  };
-
-  const handleExportPDF = () => {
-    window.print();
-  };
-
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const usersUrl = isSubAdmin
-          ? `http://localhost:5000/api/users?subsidiaryId=${currentUser?.subsidiary_id}`
-          : 'http://localhost:5000/api/users';
-        const [usersRes, subsRes, dirsRes] = await Promise.all([
-          axios.get(usersUrl),
-          axios.get('http://localhost:5000/api/subsidiaries'),
-          axios.get('http://localhost:5000/api/subsidiaries/directors/all')
-        ]);
-        setEmployees(usersRes.data);
-        setSubsidiaries(subsRes.data);
-        setDirectors(dirsRes.data);
-      } catch (err) {
-        console.error('Failed to fetch directory data', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    if (currentUser) {
-      fetchData();
-    }
-  }, [currentUser, isSubAdmin]);
+    const timer = window.setTimeout(loadDirectory, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadDirectory]);
 
-  const filteredEmployees = useMemo(() => {
-    return employees.filter(emp => {
-      const matchesSearch =
-        emp.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.role?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.department?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.subsidiary_name?.toLowerCase().includes(searchTerm.toLowerCase());
+  const departments = useMemo(() => [...new Set(employees.map((employee) => employee.department).filter(Boolean))].sort(), [employees]);
 
-      if (activeTab === 'My Subsidiary Members') {
-        const matchesSub = Number(emp.subsidiary_id) === Number(currentUser?.subsidiary_id);
-        return matchesSearch && matchesSub;
-      }
-
-      const matchesFilter = isSubAdmin || activeFilter === 'All' || emp.subsidiary_name === activeFilter;
-
-      return matchesSearch && matchesFilter;
+  const filtered = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return employees.filter((employee) => {
+      const text = [employee.full_name, employee.job_title, employee.role, employee.department, employee.subsidiary_name, employee.email]
+        .filter(Boolean).join(' ').toLowerCase();
+      const matchesSearch = !query || text.includes(query);
+      const matchesSubsidiary = subsidiary === 'all' || String(employee.subsidiary_id) === subsidiary;
+      const matchesDepartment = department === 'all' || employee.department === department;
+      const matchesTab = tab !== 'mine' || Number(employee.subsidiary_id) === Number(currentUser?.subsidiary_id);
+      return matchesSearch && matchesSubsidiary && matchesDepartment && matchesTab;
     });
-  }, [employees, searchTerm, activeFilter, isSubAdmin, activeTab, currentUser]);
+  }, [employees, search, subsidiary, department, tab, currentUser?.subsidiary_id]);
 
-  const totalPages = useMemo(() => {
-    return Math.ceil(filteredEmployees.length / itemsPerPage);
-  }, [filteredEmployees.length]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const visibleEmployees = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
-  const paginatedEmployees = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredEmployees.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredEmployees, currentPage]);
+  const openMessage = (employee) => {
+    sessionStorage.setItem('quick_chat_partner', JSON.stringify({
+      id: employee.id,
+      full_name: employee.full_name,
+      job_title: employee.job_title || employee.role,
+      subsidiary_name: employee.subsidiary_name,
+      profile_pic: employee.profile_pic || null,
+    }));
+    navigate('/messages');
+  };
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, activeFilter, activeTab, viewMode]);
-
-  const stats = useMemo(() => ({
-    total: employees.length,
-    subCount: subsidiaries.length,
-    depts: [...new Set(employees.map(e => e.department))].length,
-    online: Math.floor(employees.length * 0.25), // Mock online count
-    ownSubEmployees: currentUser?.subsidiary_id
-      ? employees.filter(e => Number(e.subsidiary_id) === Number(currentUser.subsidiary_id)).length
-      : 0
-  }), [employees, subsidiaries, currentUser]);
+  const clearFilters = () => {
+    setSearch('');
+    setSubsidiary('all');
+    setDepartment('all');
+    setTab('all');
+    setPage(1);
+  };
 
   if (loading) return (
-    <div className="min-h-[80vh] flex flex-col items-center justify-center space-y-6">
-      <div className="w-20 h-20 border-4 border-slate-100 border-t-brand-red rounded-full animate-spin shadow-2xl"></div>
-      <div className="space-y-2 text-center">
-        <p className="text-[10px] font-black uppercase tracking-[6px] text-slate-400 animate-pulse">Initializing API Family Intelligence</p>
-        <div className="h-1 w-48 bg-slate-100 rounded-full mx-auto overflow-hidden">
-          <motion.div
-            initial={{ x: '-100%' }}
-            animate={{ x: '100%' }}
-            transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
-            className="h-full w-full bg-brand-red"
-          />
-        </div>
+    <div className="flex min-h-[65vh] items-center justify-center">
+      <div className="text-center">
+        <div className="mx-auto h-11 w-11 animate-spin rounded-full border-4 border-brand-red/10 border-t-brand-red" />
+        <p className="mt-4 text-[9px] font-black uppercase tracking-[.22em] text-text-secondary">Loading directory</p>
       </div>
     </div>
   );
 
   return (
-    <div className="relative selection:bg-brand-red/10 pb-32">
-      <style>{`
-        @media print {
-          /* Hide sidebar, header, navigation, and tabs */
-          header, footer, nav, aside, .no-print, 
-          button, .pt-6.relative.z-10, .flex.justify-center.mb-10,
-          .absolute.top-8.left-8.right-8.flex,
-          .fixed.inset-0.pointer-events-none {
-            display: none !important;
-          }
-          /* Reset backgrounds and padding for print */
-          body, .min-h-screen, #root {
-            background: white !important;
-            color: black !important;
-            padding: 0 !important;
-            margin: 0 !important;
-          }
-          /* Ensure cards and text are fully visible without truncation */
-          .bg-white {
-            border: 1px solid #e2e8f0 !important;
-            box-shadow: none !important;
-            page-break-inside: avoid;
-          }
-          .shadow-2xl, .shadow-xl, .shadow-[0_8px_32px_rgba(0,0,0,0.07)] {
-            box-shadow: none !important;
-          }
-        }
-      `}</style>
-      {/* Background Decor */}
-      <div className="fixed inset-0 pointer-events-none -z-10">
-        <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-brand-red/[0.03] rounded-full blur-[150px] -translate-y-1/2 translate-x-1/2" />
-        <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-indigo-500/[0.02] rounded-full blur-[120px] translate-y-1/2 -translate-x-1/2" />
-      </div>
+    <div className="mx-auto w-full max-w-[1500px] space-y-5 pb-10">
+      <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="relative h-[190px] overflow-hidden rounded-[22px] shadow-[0_22px_55px_-34px_rgba(158,14,39,.5)] sm:h-[235px] lg:h-[285px] xl:h-[305px]">
+        <img src="/employee-directory-hero-v2.png" alt="Welcome to the George Steuart family" className="block h-full w-full object-cover object-center" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-transparent" />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9, x: 12 }}
+          animate={{ opacity: 1, scale: 1, x: 0, y: [0, -3, 0] }}
+          transition={{ opacity: { duration: 0.45, delay: 0.35 }, scale: { duration: 0.45, delay: 0.35 }, x: { duration: 0.45, delay: 0.35 }, y: { duration: 3.2, repeat: Infinity, ease: 'easeInOut', delay: 0.8 } }}
+          className="absolute bottom-3 right-3 flex items-center gap-3 rounded-2xl border border-white/35 bg-white/90 px-3.5 py-3 shadow-[0_15px_40px_-18px_rgba(38,31,32,.5)] backdrop-blur-xl sm:bottom-5 sm:right-5 sm:px-4"
+        >
+          <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-brand-red text-white shadow-lg shadow-brand-red/20">
+            <span className="absolute inset-[-4px] animate-ping rounded-[15px] border border-white/40" />
+            <Users className="relative h-4.5 w-4.5" />
+          </div>
+          <div>
+            <p className="text-[7px] font-black uppercase tracking-[.16em] text-text-secondary">Our people</p>
+            <div className="mt-0.5 flex items-end gap-1.5">
+              <AnimatePresence mode="popLayout">
+                <motion.strong key={employees.length} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="text-xl font-black leading-none tracking-[-.04em] text-text-main sm:text-2xl">{employees.length.toLocaleString()}</motion.strong>
+              </AnimatePresence>
+              <span className="pb-0.5 text-[8px] font-bold text-text-secondary">employees</span>
+            </div>
+          </div>
+        </motion.div>
+      </motion.section>
 
-      {/* SECTION 1 — HERO DIRECTORY BANNER */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative w-full rounded-[32px] overflow-hidden shadow-2xl mb-12"
-      >
-        <img
-          src="/image.png"
-          alt="Employee Directory Cover"
-          className="w-full h-auto block"
-        />
-      </motion.div>
+      {error && (
+        <div className="flex items-center justify-between gap-4 rounded-2xl border border-brand-red/15 bg-brand-red-light px-4 py-3 text-[10px] font-bold text-brand-red">
+          <span>{error}</span><button onClick={loadDirectory} className="flex items-center gap-1.5 font-black uppercase tracking-wider"><RefreshCw className="h-3.5 w-3.5" />Retry</button>
+        </div>
+      )}
 
-      {/* SECTION 5 — DIRECTORY TABS */}
-      <div className="flex justify-center mb-10">
-        <div className="bg-slate-100/50 p-1.5 rounded-[24px] flex flex-wrap items-center gap-1">
-          {['Employees', 'My Subsidiary Members', 'Organization Structure'].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-8 py-3.5 rounded-[20px] text-[10px] font-black uppercase tracking-widest transition-all relative ${activeTab === tab ? 'text-white' : 'text-slate-400 hover:text-slate-600'}`}
-            >
-              {activeTab === tab && (
-                <motion.div
-                  layoutId="activeTab"
-                  className="absolute inset-0 bg-slate-900 rounded-[20px] shadow-xl"
-                />
-              )}
-              <span className="relative z-10">{tab}</span>
-            </button>
-          ))}
+      <div className="flex justify-center">
+        <div className="grid w-full max-w-md grid-cols-2 rounded-2xl border border-[#E8E0D7] bg-white p-1.5 shadow-[0_12px_35px_-30px_rgba(94,45,51,.4)] dark:border-white/[0.07] dark:bg-[#111827]">
+          <button onClick={() => setMode('directory')} className={`relative flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[9px] font-black uppercase tracking-[.12em] ${mode === 'directory' ? 'text-white' : 'text-text-secondary hover:text-brand-red'}`}>{mode === 'directory' && <motion.span layoutId="directoryMode" className="absolute inset-0 rounded-xl bg-brand-red shadow-lg shadow-brand-red/15" />}<Users className="relative h-3.5 w-3.5" /><span className="relative">Directory</span></button>
+          <button onClick={() => setMode('hierarchy')} className={`relative flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[9px] font-black uppercase tracking-[.12em] ${mode === 'hierarchy' ? 'text-white' : 'text-text-secondary hover:text-brand-red'}`}>{mode === 'hierarchy' && <motion.span layoutId="directoryMode" className="absolute inset-0 rounded-xl bg-brand-red shadow-lg shadow-brand-red/15" />}<Network className="relative h-3.5 w-3.5" /><span className="relative">Company hierarchy</span></button>
         </div>
       </div>
 
-      <AnimatePresence mode="wait">
-        {activeTab === 'Employees' || activeTab === 'My Subsidiary Members' ? (
-          <motion.div key="employees-view" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-10">
+      {mode === 'directory' ? <>
 
-            {/* STATS ROW */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
-              {[
-                { label: 'Total Employees', value: stats.total, icon: Users, color: '#C8102E', bg: '#fff1f2' },
-                { label: 'Total Subsidiaries', value: stats.subCount, icon: Building2, color: '#6366f1', bg: '#eef2ff' },
-                currentUser?.subsidiary_id
-                  ? { label: 'Subsidiary Employees', value: stats.ownSubEmployees, icon: Briefcase, color: '#f59e0b', bg: '#fffbeb' }
-                  : null,
-                { label: 'Online Now', value: stats.online, icon: Globe, color: '#10b981', bg: '#ecfdf5', pulse: true },
-              ].filter(Boolean).map((s, i) => (
-                <motion.div key={i} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}
-                  className="relative bg-white/70 backdrop-blur-xl border border-white rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.07)] hover:shadow-[0_16px_48px_rgba(0,0,0,0.12)] transition-all duration-300 overflow-hidden group">
-                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ background: `radial-gradient(circle at top right, ${s.color}08, transparent 70%)` }} />
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-sm" style={{ background: s.bg }}>
-                      <s.icon className="w-5 h-5" style={{ color: s.color }} />
-                    </div>
-                    {s.pulse && <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /><span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">Live</span></div>}
-                  </div>
-                  <p className="text-3xl font-black text-slate-800 tracking-tight">{s.value}</p>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[2px] mt-1">{s.label}</p>
-                </motion.div>
-              ))}
-            </div>
-
-            {/* TWO-COLUMN LAYOUT */}
-            <div className="flex gap-8 items-start">
-
-              {/* LEFT SIDEBAR */}
-              <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}
-                className="hidden lg:flex flex-col gap-6 w-72 shrink-0">
-
-                {/* Search */}
-                <div className="bg-white/70 backdrop-blur-xl border border-white rounded-3xl p-5 shadow-[0_8px_24px_rgba(0,0,0,0.06)]">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-[3px] mb-3">Search</p>
-                  <div className="relative">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
-                    <input type="text" placeholder="Name, role, department..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                      className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm text-slate-700 placeholder:text-slate-300 outline-none focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red/30 transition-all font-medium" />
-                  </div>
-                </div>
-
-                {/* Subsidiary Filter */}
-                <div className="bg-white/70 backdrop-blur-xl border border-white rounded-3xl p-5 shadow-[0_8px_24px_rgba(0,0,0,0.06)]">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-[3px] mb-3">Subsidiary</p>
-                  {isSubAdmin ? (
-                    <div className="flex items-center gap-3 px-4 py-3 bg-brand-red text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg">
-                      <Building2 className="w-4 h-4 shrink-0 text-white animate-pulse" />
-                      <span className="truncate flex-1">{currentUser?.subsidiary_name || 'My Subsidiary'}</span>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-1.5 max-h-72 overflow-y-auto no-scrollbar">
-                      {[{ id: 'all', name: 'All' }, ...subsidiaries].map((sub, idx) => {
-                        const palette = ['#C8102E', '#6366f1', '#f59e0b', '#10b981', '#ec4899', '#f97316', '#8b5cf6', '#06b6d4', '#84cc16', '#a855f7', '#14b8a6', '#fb923c'];
-                        const color = sub.name === 'All' ? '#C8102E' : palette[idx % palette.length];
-                        const active = activeFilter === sub.name;
-                        const count = sub.name === 'All' ? employees.length : employees.filter(e => e.subsidiary_name === sub.name).length;
-                        return (
-                          <button key={sub.id} onClick={() => setActiveFilter(sub.name)}
-                            className={`flex items-center gap-3 px-4 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all text-left ${active ? 'text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}
-                            style={active ? { background: color } : {}}>
-                            <div className="w-2 h-2 rounded-full shrink-0" style={{ background: color, opacity: active ? 1 : 0.5 }} />
-                            <span className="truncate flex-1">{sub.name}</span>
-                            <span className="ml-auto text-[8px] opacity-70 shrink-0">{count}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-
-                {/* Subsidiary Distribution Chart */}
-                <div className="bg-white/70 backdrop-blur-xl border border-white rounded-3xl p-5 shadow-[0_8px_24px_rgba(0,0,0,0.06)]">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-[3px] mb-4">Distribution</p>
-                  {(() => {
-                    const subMap = {};
-                    employees.forEach(e => { subMap[e.subsidiary_name] = (subMap[e.subsidiary_name] || 0) + 1; });
-                    const subs = Object.entries(subMap).sort((a, b) => b[1] - a[1]);
-                    const total = employees.length || 1;
-                    const palette = ['#C8102E', '#6366f1', '#f59e0b', '#10b981', '#ec4899', '#f97316', '#8b5cf6'];
-                    const stops = subs.reduce((acc, [, v], i) => {
-                      const pct = (v / total) * 100;
-                      const prev = acc.cum;
-                      acc.cum += pct;
-                      acc.parts.push(`${palette[i % palette.length]} ${prev.toFixed(1)}% ${acc.cum.toFixed(1)}%`);
-                      return acc;
-                    }, { cum: 0, parts: [] }).parts.join(', ');
-                    return (
-                      <div className="space-y-4">
-                        <div className="relative flex justify-center">
-                          <div className="w-28 h-28 rounded-full" style={{ background: stops ? `conic-gradient(${stops})` : '#f1f5f9' }} />
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="w-16 h-16 bg-white rounded-full flex flex-col items-center justify-center shadow-inner">
-                              <p className="text-lg font-black text-slate-800">{employees.length}</p>
-                              <p className="text-[7px] font-bold text-slate-400 uppercase">Total</p>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          {subs.slice(0, 5).map(([subName, count], i) => (
-                            <div key={subName} className="flex items-center gap-2">
-                              <div className="w-2 h-2 rounded-full shrink-0" style={{ background: palette[i % palette.length] }} />
-                              <span className="text-[9px] font-bold text-slate-500 flex-1 truncate">{subName}</span>
-                              <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
-                                <motion.div initial={{ width: 0 }} animate={{ width: `${(count / total * 100).toFixed(0)}%` }}
-                                  transition={{ delay: i * 0.1, duration: 0.6 }} className="h-full rounded-full"
-                                  style={{ background: palette[i % palette.length] }} />
-                              </div>
-                              <span className="text-[9px] font-black text-slate-400 w-4 text-right">{count}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-              </motion.div>
-
-              {/* RIGHT MAIN GRID */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <h3 className="text-xl font-black text-slate-800 tracking-tight">Personnel Matrix</h3>
-                    <p className="text-[10px] font-bold text-slate-400 mt-0.5">{filteredEmployees.length} records found</p>
-                  </div>
-                  <div className="flex bg-white border border-slate-100 p-1 rounded-xl shadow-sm">
-                    <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-300 hover:text-slate-500'}`}><LayoutGrid className="w-4 h-4" /></button>
-                    <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-300 hover:text-slate-500'}`}><List className="w-4 h-4" /></button>
-                  </div>
-                </div>
-
-                <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6' : 'space-y-3'}>
-                  {paginatedEmployees.map((emp, i) => {
-                    const dc = { IT: '#6366f1', Finance: '#f59e0b', HR: '#ec4899', Healthcare: '#10b981', Operations: '#f97316', Marketing: '#8b5cf6' };
-                    const color = dc[emp.department] || '#64748b';
-                    const lightBg = { IT: '#eef2ff', Finance: '#fffbeb', HR: '#fdf2f8', Healthcare: '#ecfdf5', Operations: '#fff7ed', Marketing: '#f5f3ff' }[emp.department] || '#f8fafc';
-
-                    const subInfo = subsidiaries.find(s => Number(s.id) === Number(emp.subsidiary_id));
-                    const subHeadcount = subInfo ? subInfo.employees : 0;
-
-                    if (viewMode === 'list') return (
-                      <motion.div key={emp.id} layout initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.03 }}
-                        onClick={() => setSelectedUser(emp)}
-                        className="group cursor-pointer bg-white/80 backdrop-blur-sm border border-slate-100 rounded-2xl p-4 flex items-center gap-4 hover:shadow-[0_8px_32px_rgba(0,0,0,0.08)] hover:border-slate-200 transition-all duration-300">
-                        <div className="relative shrink-0">
-                          <div className="w-12 h-12 rounded-2xl overflow-hidden border-2 border-white shadow-md" style={{ outline: `2px solid ${color}22` }}>
-                            <img src={emp.profile_pic || `https://ui-avatars.com/api/?name=${emp.full_name}&background=C8102E&color=fff&bold=true`} className="w-full h-full object-cover" />
-                          </div>
-                          <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-sm font-black text-slate-805 truncate group-hover:text-brand-red transition-colors">{emp.full_name}</h4>
-                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">{emp.role}</p>
-                        </div>
-                        <span className="hidden md:block text-[9px] font-black px-2.5 py-1 rounded-lg uppercase tracking-widest" style={{ background: lightBg, color }}>{emp.department}</span>
-                        <span className="hidden lg:block text-[10px] font-bold text-slate-400 truncate max-w-[160px]">
-                          {emp.subsidiary_name}
-                        </span>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <button onClick={e => e.stopPropagation()} className="p-2 rounded-xl bg-slate-50 hover:bg-brand-red hover:text-white text-slate-450 transition-all"><Mail className="w-3.5 h-3.5" /></button>
-                          <button onClick={e => e.stopPropagation()} className="p-2 rounded-xl bg-slate-50 hover:bg-brand-red hover:text-white text-slate-450 transition-all"><PhoneCall className="w-3.5 h-3.5" /></button>
-                          <ChevronRight className="w-4 h-4 text-slate-200 group-hover:text-brand-red transition-colors" />
-                        </div>
-                      </motion.div>
-                    );
-                    return (
-                      <motion.div key={emp.id} layout initial={{ opacity: 0, y: 24, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-                        transition={{ delay: i * 0.04, type: 'spring', stiffness: 220, damping: 22 }}
-                        whileHover={{ y: -6 }} onClick={() => setSelectedUser(emp)}
-                        className="group cursor-pointer bg-white/80 backdrop-blur-sm rounded-[28px] border border-white shadow-[0_4px_20px_rgba(0,0,0,0.06)] hover:shadow-[0_20px_60px_rgba(0,0,0,0.13)] transition-all duration-400 overflow-hidden">
-                        <div className="h-1.5 w-full" style={{ background: `linear-gradient(90deg, ${color}, ${color}66)` }} />
-                        <div className="p-6">
-                          <div className="flex items-start justify-between mb-5">
-                            <div className="relative">
-                              <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-white shadow-[0_4px_14px_rgba(0,0,0,0.1)] group-hover:scale-105 transition-transform duration-300"
-                                style={{ outline: `2px solid ${color}33` }}>
-                                <img src={emp.profile_pic || `https://ui-avatars.com/api/?name=${emp.full_name}&background=C8102E&color=fff&bold=true`} className="w-full h-full object-cover" />
-                              </div>
-                              <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 border-2 border-white rounded-full flex items-center justify-center shadow-sm">
-                                <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-                              </div>
-                            </div>
-                            <span className="text-[8px] font-black uppercase tracking-widest px-2.5 py-1 rounded-xl" style={{ background: lightBg, color }}>{emp.department}</span>
-                          </div>
-                          <h4 className="text-base font-black text-slate-805 leading-tight group-hover:text-brand-red transition-colors duration-200 truncate">{emp.full_name}</h4>
-                          <p className="text-[10px] font-bold text-slate-450 uppercase tracking-widest mt-1 mb-4 truncate">{emp.role}</p>
-                          <div className="space-y-2 mb-5">
-                            <div className="flex items-center gap-2">
-                              <div className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0" style={{ background: lightBg }}>
-                                <Building2 className="w-3 h-3" style={{ color }} />
-                              </div>
-                              <span className="text-[10px] font-bold text-slate-500 truncate">{emp.subsidiary_name}</span>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                              <div className="w-6 h-6 rounded-lg bg-slate-50 flex items-center justify-center shrink-0">
-                                <MapPin className="w-3 h-3 text-slate-400" />
-                              </div>
-                              <span className="text-[10px] font-bold text-slate-500">Colombo 01 • Ext: {emp.phone?.slice(-4) || '2042'}</span>
-                            </div>
-                          </div>
-                          <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
-                            <div className="flex gap-1.5">
-                              {[Mail, PhoneCall, Video].map((Icon, idx) => (
-                                <button key={idx} onClick={e => e.stopPropagation()}
-                                  className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-50 text-slate-405 hover:text-white transition-all duration-200"
-                                  style={{}} onMouseEnter={e => e.currentTarget.style.background = color} onMouseLeave={e => e.currentTarget.style.background = ''}>
-                                  <Icon className="w-3.5 h-3.5" />
-                                </button>
-                              ))}
-                            </div>
-                            <button className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-slate-300 group-hover:text-brand-red transition-colors duration-200">
-                              Profile <ChevronRight className="w-3 h-3" />
-                            </button>
-                          </div>
-                        </div>
-                        <div className="absolute inset-0 rounded-[28px] border-2 border-transparent group-hover:border-brand-red/10 transition-all pointer-events-none" />
-                      </motion.div>
-                    );
-                  })}
-                </div>
-
-                {/* ── PAGINATION CONTROLS ── */}
-                {totalPages > 1 && (
-                  <div className="mt-10 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white/40 backdrop-blur-xl border border-white/60 rounded-[28px] p-5 shadow-[0_12px_40px_rgba(0,0,0,0.03)] transition-all duration-300">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-1.5 h-1.5 rounded-full bg-brand-red animate-pulse" />
-                      <span className="text-xs font-semibold text-slate-550 tracking-wide">
-                        Showing <span className="font-bold text-slate-800">{Math.min((currentPage - 1) * itemsPerPage + 1, filteredEmployees.length)}</span> to <span className="font-bold text-slate-800">{Math.min(currentPage * itemsPerPage, filteredEmployees.length)}</span> of <span className="font-bold text-slate-800">{filteredEmployees.length}</span> employees
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                        disabled={currentPage === 1}
-                        className={`w-10 h-10 rounded-2xl flex items-center justify-center border transition-all duration-300 ${currentPage === 1
-                            ? 'border-slate-100 text-slate-300 bg-slate-50/20 cursor-not-allowed'
-                            : 'border-slate-200/85 text-slate-605 bg-white hover:bg-slate-900 hover:text-white hover:border-slate-900 hover:shadow-[0_8px_20px_rgba(15,23,42,0.15)] active:scale-95'
-                          }`}
-                      >
-                        <ChevronLeft className="w-4.5 h-4.5" />
-                      </button>
-
-                      <div className="w-10 h-10 rounded-2xl text-xs font-bold flex items-center justify-center bg-gradient-to-r from-[#C8102E] to-[#A00D25] text-white shadow-[0_6px_20px_rgba(200,16,46,0.25)] select-none">
-                        {currentPage}
-                      </div>
-
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                        disabled={currentPage === totalPages}
-                        className={`w-10 h-10 rounded-2xl flex items-center justify-center border transition-all duration-355 ${currentPage === totalPages
-                            ? 'border-slate-100 text-slate-300 bg-slate-50/20 cursor-not-allowed'
-                            : 'border-slate-200/85 text-slate-605 bg-white hover:bg-slate-900 hover:text-white hover:border-slate-900 hover:shadow-[0_8px_20px_rgba(15,23,42,0.15)] active:scale-95'
-                          }`}
-                      >
-                        <ChevronRight className="w-4.5 h-4.5" />
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        ) : (
-          <motion.div
-            key="org-view"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -16 }}
-            className="relative bg-gradient-to-br from-slate-50 via-white to-slate-50 rounded-[40px] border border-slate-100 shadow-[0_8px_48px_rgba(0,0,0,0.06)] overflow-hidden p-12 space-y-0"
-          >
-            {/* Subtle background accents */}
-            <div className="absolute top-0 right-0 w-96 h-96 bg-brand-red/[0.03] rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-            <div className="absolute bottom-0 left-0 w-80 h-80 bg-indigo-500/[0.03] rounded-full blur-[100px] translate-y-1/2 -translate-x-1/2 pointer-events-none" />
-
-            {/* ── LEVEL 1: CHAIRMAN ── */}
-            <div className="flex flex-col items-center relative z-10">
-              <motion.div
-                initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-                whileHover={{ y: -5, boxShadow: '0 32px 64px rgba(200,16,46,0.12)' }}
-                className="relative flex items-center gap-6 bg-white border border-slate-100 rounded-[28px] px-8 py-6 shadow-[0_8px_40px_rgba(0,0,0,0.08)] w-[480px] transition-all duration-300"
-              >
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-red via-brand-red/60 to-transparent rounded-t-[28px]" />
-                <div className="w-20 h-28 rounded-2xl overflow-hidden border-2 border-brand-red/20 shadow-lg shrink-0">
-                  <img src="https://georgesteuart.lk/img/Sarva-Ameresekere.jpg" className="w-full h-full object-cover object-top" onError={e => e.target.src = 'https://ui-avatars.com/api/?name=Sarva+Ameresekere&background=C8102E&color=fff'} />
-                </div>
-                <div className="flex-1">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 bg-brand-red/8 border border-brand-red/15 rounded-full mb-3">
-                    <div className="w-1.5 h-1.5 rounded-full bg-brand-red animate-pulse" />
-                    <span className="text-xs font-black text-brand-red uppercase tracking-widest">Group Chairman </span>
-                  </div>
-                  <p className="text-2xl font-black text-slate-900 tracking-tight leading-tight">Sarva Ameresekere</p>
-                  <div className="flex items-center gap-2 mt-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Presiding Officer</span>
-                  </div>
-                </div>
-              </motion.div>
-              <div className="w-px h-8 bg-gradient-to-b from-brand-red/30 to-slate-200" />
-              <div className="w-[75%] h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
-            </div>
-
-            {/* ── LEVEL 2: GROUP DIRECTORS ── */}
-            <div className="relative z-10">
-              <div className="grid grid-cols-5 gap-4">
-                {[
-                  { name: 'Varuni Fernando', img: 'https://georgesteuart.lk/img/Varuni-Fernando.jpg' },
-                  { name: 'Dai Pathmananthan', img: 'https://georgesteuart.lk/img/Dai-Pathmananthan.jpg' },
-                  { name: 'Manoj Pilimatalawwe', img: 'https://georgesteuart.lk/img/Manoj-Pilimatalawwe.jpg' },
-                  { name: 'Eran Ranasinghe', img: 'https://georgesteuart.lk/img/Eran-Ranasinghe.jpg' },
-                  { name: 'Channe Wijemanne', img: 'https://georgesteuart.lk/img/Channe-Wijemanne.jpg' },
-                ].map((d, i) => (
-                  <motion.div key={i} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 + i * 0.07 }}
-                    whileHover={{ y: -6 }}
-                    className="flex flex-col items-center group cursor-default">
-                    <div className="w-px h-8 bg-slate-200" />
-                    <div className="bg-white border border-slate-100 rounded-[22px] p-5 flex flex-col items-center gap-3 w-full shadow-[0_4px_20px_rgba(0,0,0,0.06)] hover:shadow-[0_12px_40px_rgba(99,102,241,0.12)] hover:border-indigo-100 transition-all duration-300">
-                      <div className="w-16 h-20 rounded-xl overflow-hidden border border-slate-100 group-hover:border-indigo-200 transition-colors shadow-sm">
-                        <img src={d.img} className="w-full h-full object-cover object-top" onError={e => e.target.src = `https://ui-avatars.com/api/?name=${d.name}&background=6366f1&color=fff`} />
-                      </div>
-                      <div className="text-center">
-                        <p className="text-sm font-black text-slate-800 leading-tight">{d.name}</p>
-                        <p className="text-xs font-bold text-indigo-500 uppercase tracking-wider mt-1">Group Director</p>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-
-            {/* ── DIVIDER: INDEPENDENT DIRECTORS ── */}
-            <div className="flex items-center gap-4 py-7 relative z-10">
-              <div className="flex-1 h-px bg-slate-100" />
-              <span className="px-4 py-1.5 bg-amber-50 border border-amber-100 rounded-full text-xs font-black text-amber-600 uppercase tracking-widest">Independent Directors</span>
-              <div className="flex-1 h-px bg-slate-100" />
-            </div>
-
-            {/* ── INDEPENDENT DIRECTORS ── */}
-            <div className="grid grid-cols-4 gap-4 relative z-10">
-              {[
-                { name: 'Samantha Ranatunga', img: 'https://georgesteuart.lk/img/Samantha-Ranatunga.jpg' },
-                { name: 'Dinesh Palipana', img: 'https://georgesteuart.lk/img/Dinesh-Palipana.jpg' },
-                { name: 'Devaka Cooray', img: 'https://georgesteuart.lk/img/Devaka-Cooray.jpg' },
-                { name: 'Dimantha Seneviratne', img: 'https://georgesteuart.lk/img/Dimantha-Seneviratne.jpg' },
-              ].map((d, i) => (
-                <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 + i * 0.06 }}
-                  whileHover={{ y: -4 }}
-                  className="group flex items-center gap-4 bg-white border border-slate-100 rounded-[20px] p-4 shadow-[0_4px_16px_rgba(0,0,0,0.05)] hover:shadow-[0_8px_32px_rgba(245,158,11,0.12)] hover:border-amber-100 transition-all duration-300">
-                  <div className="w-12 h-16 rounded-xl overflow-hidden border border-slate-100 group-hover:border-amber-200 transition-colors shrink-0 shadow-sm">
-                    <img src={d.img} className="w-full h-full object-cover object-top" onError={e => e.target.src = `https://ui-avatars.com/api/?name=${d.name}&background=f59e0b&color=fff`} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-black text-slate-800 leading-tight">{d.name}</p>
-                    <p className="text-xs font-semibold text-amber-500 uppercase tracking-wider mt-1">Independent Director</p>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-
-            {/* ── DIVIDER: SUBSIDIARY ORG CHART & DIRECTORIES ── */}
-            <div className="flex items-center gap-4 py-7 relative z-10">
-              <div className="flex-1 h-px bg-slate-100" />
-              <span className="px-4 py-1.5 bg-brand-red/5 border border-brand-red/15 rounded-full text-xs font-black text-brand-red uppercase tracking-widest">
-                Subsidiary Corporate Networks
-              </span>
-              <div className="flex-1 h-px bg-slate-100" />
-            </div>
-
-            {/* ── DYNAMIC SUBSIDIARY CARDS DECK ── */}
-            <div className="space-y-12 relative z-10">
-              {subsidiaries.map((sub, sIdx) => {
-                const palette = ['#10b981', '#6366f1', '#f59e0b', '#ec4899', '#f97316', '#8b5cf6', '#06b6d4', '#84cc16'];
-                const subColor = palette[sIdx % palette.length];
-                const lightBg = ['bg-emerald-50/50', 'bg-indigo-50/50', 'bg-amber-50/50', 'bg-pink-50/50', 'bg-orange-50/50', 'bg-purple-50/50', 'bg-cyan-50/50', 'bg-lime-50/50'][sIdx % palette.length];
-
-                // Filter directors & employees for this specific subsidiary
-                const subDirs = directors.filter(d => Number(d.subsidiary_id) === Number(sub.id));
-                const subEmps = employees.filter(emp => Number(emp.subsidiary_id) === Number(sub.id));
-                const isExpanded = !!expandedSubs[sub.id];
-
-                return (
-                  <motion.div
-                    key={sub.id}
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: sIdx * 0.05 }}
-                    className="bg-white border border-slate-100 rounded-[32px] shadow-[0_8px_32px_rgba(0,0,0,0.03)] hover:shadow-[0_16px_48px_rgba(0,0,0,0.06)] overflow-hidden transition-all duration-300"
-                    style={{ borderTop: `6px solid ${subColor}` }}
-                  >
-                    {/* Subsidiary Card Header */}
-                    <div
-                      onClick={() => toggleSubExpand(sub.id)}
-                      className="p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-slate-50 bg-slate-50/20 cursor-pointer hover:bg-slate-50/40 select-none transition-colors"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm" style={{ backgroundColor: `${subColor}12` }}>
-                          <Building2 className="w-6 h-6" style={{ color: subColor }} />
-                        </div>
-                        <div>
-                          <h3 className="text-xl font-black text-slate-800 tracking-tight">{sub.name}</h3>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{sub.location || 'George Steuart Group'}</p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-4 self-end md:self-auto" onClick={e => e.stopPropagation()}>
-
-                        <div className="px-4 py-1.5 bg-slate-50 border border-slate-100 rounded-xl flex items-center gap-2">
-                          <Users className="w-4 h-4 text-slate-400" />
-                          <span className="text-xs font-black text-slate-600">{subEmps.length + subDirs.length} Portal Members</span>
-                        </div>
-
-                        {(subEmps.length > 0 || subDirs.length > 0) && (
-                          <button
-                            onClick={() => toggleSubExpand(sub.id)}
-                            className="px-5 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 hover:bg-slate-800 transition-all shadow-md active:scale-95 animate-fade-in"
-                          >
-                            {isExpanded ? (
-                              <>
-                                <span>Collapse Details</span>
-                                <ChevronUp className="w-4 h-4" />
-                              </>
-                            ) : (
-                              <>
-                                <span>Expand Details</span>
-                                <ChevronDown className="w-4 h-4" />
-                              </>
-                            )}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    <AnimatePresence>
-                      {isExpanded && (
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }}
-                          className="border-t border-slate-50 overflow-hidden"
-                        >
-                          <div className="p-8 space-y-8">
-                            {/* SUB-SECTION 1: BOARD OF DIRECTORS */}
-                            <div className="space-y-4">
-                              <div className="flex items-center gap-2.5">
-                                <div className="w-1 h-4 bg-brand-red rounded-full" />
-                                <h4 className="text-[10px] font-black uppercase tracking-[3px] text-slate-450">
-                                  Board of Directors
-                                </h4>
-                              </div>
-
-                              {subDirs.length === 0 ? (
-                                <p className="text-xs font-semibold text-slate-350 italic pl-1">No directors assigned to this subsidiary board.</p>
-                              ) : (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-                                  {subDirs.map((dir) => (
-                                    <motion.div
-                                      key={dir.id}
-                                      whileHover={{ y: -4 }}
-                                      className="group flex items-center gap-4 bg-slate-50/50 border border-slate-100 rounded-[20px] p-4 hover:bg-white hover:border-slate-200 hover:shadow-md transition-all duration-300"
-                                    >
-                                      <div className="w-12 h-16 rounded-xl overflow-hidden border border-slate-100 group-hover:border-indigo-100 transition-colors shrink-0 shadow-sm">
-                                        {dir.image_url ? (
-                                          <img src={dir.image_url} alt={dir.name} className="w-full h-full object-cover object-top" />
-                                        ) : (
-                                          <div className="w-full h-full flex items-center justify-center font-black text-sm uppercase" style={{ backgroundColor: `${subColor}12`, color: subColor }}>
-                                            {dir.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                                          </div>
-                                        )}
-                                      </div>
-                                      <div className="min-w-0">
-                                        <p className="text-sm font-black text-slate-800 leading-tight group-hover:text-brand-red transition-colors truncate">{dir.name}</p>
-                                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mt-1 truncate" style={{ color: subColor }}>
-                                          {dir.title || 'Director'}
-                                        </p>
-                                      </div>
-                                    </motion.div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* SUB-SECTION 2: COLLAPSIBLE EMPLOYEE DIRECTORY */}
-                            {subEmps.length > 0 && (
-                              <div className="pt-6 border-t border-slate-50 space-y-4">
-                                <div className="flex items-center gap-2.5">
-                                  <div className="w-1 h-4" style={{ backgroundColor: subColor }} />
-                                  <h4 className="text-[10px] font-black uppercase tracking-[3px] text-slate-450">
-                                    Key Personnel & Team
-                                  </h4>
-                                </div>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-                                  {subEmps.map((emp) => (
-                                    <motion.div
-                                      key={emp.id}
-                                      whileHover={{ y: -4 }}
-                                      onClick={() => setSelectedUser(emp)}
-                                      className="group cursor-pointer bg-white border border-slate-100 rounded-2xl p-5 hover:shadow-md hover:border-slate-200 transition-all flex flex-col justify-between"
-                                    >
-                                      <div className="flex items-start justify-between gap-3 mb-4">
-                                        <div className="flex items-center gap-3">
-                                          <div className="relative shrink-0">
-                                            <div className="w-11 h-11 rounded-xl overflow-hidden border-2 border-white shadow-sm" style={{ outline: `2px solid ${subColor}22` }}>
-                                              <img src={emp.profile_pic || `https://ui-avatars.com/api/?name=${emp.full_name}&background=${subColor.slice(1)}&color=fff&bold=true`} className="w-full h-full object-cover" />
-                                            </div>
-                                            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border border-white rounded-full" />
-                                          </div>
-                                          <div className="min-w-0">
-                                            <h5 className="text-sm font-black text-slate-805 truncate group-hover:text-brand-red transition-colors">{emp.full_name}</h5>
-                                            <p className="text-[9px] font-bold text-slate-450 uppercase tracking-widest mt-0.5 truncate">{emp.role || 'Member'}</p>
-                                          </div>
-                                        </div>
-                                        <span className="text-[8px] font-black px-2 py-0.5 rounded-lg uppercase tracking-wider shrink-0" style={{ backgroundColor: `${subColor}12`, color: subColor }}>
-                                          {emp.department || 'Operations'}
-                                        </span>
-                                      </div>
-
-                                      <div className="pt-3 border-t border-slate-50 flex items-center justify-between">
-                                        <p className="text-[10px] text-slate-400 font-semibold truncate max-w-[140px]">{emp.email}</p>
-                                        <div className="flex gap-1.5 shrink-0" onClick={e => e.stopPropagation()}>
-                                          <a
-                                            href={`mailto:${emp.email}`}
-                                            className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-50 text-slate-405 hover:text-white transition-all"
-                                            onMouseEnter={e => e.currentTarget.style.background = subColor}
-                                            onMouseLeave={e => e.currentTarget.style.background = ''}
-                                          >
-                                            <Mail className="w-3.5 h-3.5" />
-                                          </a>
-                                          <button
-                                            onClick={() => {
-                                              sessionStorage.setItem('quick_chat_partner', JSON.stringify({
-                                                id: emp.id,
-                                                full_name: emp.full_name,
-                                                profile_pic: emp.profile_pic || null,
-                                                subsidiary_name: emp.subsidiary_name || '',
-                                                job_title: emp.role || 'Member'
-                                              }));
-                                              navigate('/messages');
-                                            }}
-                                            className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-50 text-slate-405 hover:text-white transition-all"
-                                            onMouseEnter={e => e.currentTarget.style.background = subColor}
-                                            onMouseLeave={e => e.currentTarget.style.background = ''}
-                                          >
-                                            <MessageSquare className="w-3.5 h-3.5" />
-                                          </button>
-                                        </div>
-                                      </div>
-                                    </motion.div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </motion.div>
-                );
-              })}
-            </div>
-
-            {/* ── FOOTER CTA ── */}
-            <div className="pt-6 relative z-10">
-              <div className="flex items-center justify-between bg-slate-900 rounded-[20px] px-8 py-5 shadow-xl overflow-hidden relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-brand-red/10 to-transparent pointer-events-none" />
-                <div className="relative z-10">
-                  <p className="text-base font-black text-white">Interactive Entity Navigator</p>
-                  <p className="text-xs text-white/50 font-medium mt-0.5">Synchronized with George Steuart Group HR database</p>
-                </div>
-                <div className="relative z-10 flex gap-3">
-                  <button onClick={handleFullScreen} className="px-6 py-2.5 bg-white/10 text-white/70 text-xs font-black uppercase tracking-widest rounded-xl border border-white/10 hover:bg-white/15 transition-all">
-                    {isFullscreen ? 'Exit Full Screen' : 'Full Screen'}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* EMPLOYEE PROFILE SLIDE PANEL */}
-      <AnimatePresence>
-        {selectedUser && (
-          <div className="fixed inset-0 z-[100] flex justify-end">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setSelectedUser(null)}
-              className="absolute inset-0 bg-slate-900/70 backdrop-blur-md"
-            />
-            <motion.div
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 28, stiffness: 220 }}
-              className="relative w-full max-w-[520px] bg-[#F8FAFC] h-full shadow-[−40px_0_120px_rgba(0,0,0,0.3)] overflow-y-auto no-scrollbar flex flex-col"
-            >
-
-              {/* ── HERO HEADER ── */}
-              <div className="relative overflow-hidden" style={{ minHeight: 280 }}>
-                {/* Mesh gradient bg */}
-                <div className="absolute inset-0"
-                  style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 40%, #312e81 70%, #1e3a5f 100%)' }} />
-                {/* Decorative blobs */}
-                <div className="absolute -top-10 -right-10 w-56 h-56 rounded-full opacity-20 blur-3xl"
-                  style={{ background: 'radial-gradient(circle, #C8102E, transparent)' }} />
-                <div className="absolute bottom-0 left-0 w-40 h-40 rounded-full opacity-15 blur-2xl"
-                  style={{ background: 'radial-gradient(circle, #6366f1, transparent)' }} />
-                {/* Grid texture */}
-                <div className="absolute inset-0 opacity-[0.04]"
-                  style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='32' height='32' viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h32v1H0zM0 0v32h1V0z' fill='%23ffffff'/%3E%3C/svg%3E")` }} />
-
-                {/* Top bar */}
-                <div className="absolute top-5 left-5 right-5 flex justify-between items-center z-20">
-                  <div className="flex items-center gap-2 px-3.5 py-1.5 bg-white/10 backdrop-blur-md border border-white/15 rounded-full">
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    <span className="text-[9px] font-black text-white/90 uppercase tracking-widest">Online</span>
-                  </div>
-                  <button
-                    onClick={() => setSelectedUser(null)}
-                    className="w-9 h-9 rounded-full bg-white/10 border border-white/20 backdrop-blur-md flex items-center justify-center text-white/70 hover:bg-white hover:text-slate-900 transition-all duration-200"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                {/* Profile photo + info */}
-                <div className="relative z-10 flex items-end gap-6 px-8 pb-8 pt-20">
-                  {/* Avatar */}
-                  <div className="relative shrink-0">
-                    <div className="w-24 h-24 rounded-[22px] overflow-hidden border-[3px] border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
-                      <img
-                        src={selectedUser.profile_pic || `https://ui-avatars.com/api/?name=${encodeURIComponent(selectedUser.full_name)}&background=C8102E&color=fff&bold=true&size=200`}
-                        className="w-full h-full object-cover"
-                        alt={selectedUser.full_name}
-                      />
-                    </div>
-                    <div className="absolute -bottom-1.5 -right-1.5 w-6 h-6 bg-emerald-500 border-2 border-white rounded-full flex items-center justify-center shadow-md">
-                      <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                    </div>
-                  </div>
-
-                  {/* Name block */}
-                  <div className="flex-1 min-w-0 pb-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="px-2.5 py-1 bg-white/10 backdrop-blur-sm border border-white/15 rounded-full text-[8px] font-black text-white/70 uppercase tracking-widest">
-                        GS-{selectedUser.id}
-                      </span>
-                      <span className="px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-widest"
-                        style={{ background: 'rgba(99,102,241,0.25)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.3)' }}>
-                        {selectedUser.department || 'Operations'}
-                      </span>
-                    </div>
-                    <h2 className="text-2xl font-black text-white leading-tight tracking-tight truncate">
-                      {selectedUser.full_name}
-                    </h2>
-                    <p className="text-white/50 text-xs font-semibold mt-1 truncate">
-                      {selectedUser.role || 'Employee'} · {selectedUser.subsidiary_name || 'GS Group'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* ── BODY ── */}
-              <div className="flex-1 flex flex-col gap-4 p-5 pb-36">
-
-                {/* Quick contact chips */}
-                <div className="flex gap-2">
-                  <div className="flex-1 flex items-center gap-2.5 px-4 py-3 bg-white rounded-2xl border border-slate-100 shadow-sm min-w-0">
-                    <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
-                      <Mail className="w-3.5 h-3.5 text-indigo-500" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Email</p>
-                      <p className="text-[11px] font-black text-slate-800 truncate">{selectedUser.email}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2.5 px-4 py-3 bg-white rounded-2xl border border-slate-100 shadow-sm">
-                    <div className="w-8 h-8 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
-                      <Phone className="w-3.5 h-3.5 text-emerald-500" />
-                    </div>
-                    <div>
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Phone</p>
-                      <p className="text-[11px] font-black text-slate-800">{selectedUser.phone || 'N/A'}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Organization info card */}
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                  <div className="px-5 py-3.5 border-b border-slate-50 flex items-center gap-2">
-                    <div className="w-1 h-4 rounded-full bg-[#C8102E]" />
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-[3px]">Organization</span>
-                  </div>
-                  <div className="grid grid-cols-2 divide-x divide-slate-50">
-                    {[
-                      { label: 'Subsidiary', value: selectedUser.subsidiary_name || 'GS Group' },
-                      { label: 'Department', value: selectedUser.department || 'Operations' },
-                      { label: 'Role', value: selectedUser.role || 'Employee' },
-                      { label: 'Location', value: 'Colombo 01' },
-                    ].map((item, i) => (
-                      <div key={i} className={`px-5 py-4 ${i >= 2 ? 'border-t border-slate-50' : ''}`}>
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">{item.label}</p>
-                        <p className="text-[12px] font-black text-slate-800 leading-tight truncate">{item.value}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Hierarchy timeline */}
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                  <div className="px-5 py-3.5 border-b border-slate-50 flex items-center gap-2">
-                    <div className="w-1 h-4 rounded-full bg-indigo-500" />
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-[3px]">Hierarchy</span>
-                  </div>
-                  <div className="px-5 py-4 space-y-2">
-                    {[
-                      { label: 'Group Chairman', sub: 'Sarva Ameresekere', active: false },
-                      { label: 'Managing Director', sub: 'Executive Office', active: false },
-                      { label: selectedUser.role || 'Employee', sub: selectedUser.full_name, active: true },
-                      { label: 'Support Staff', sub: 'Associate Level', active: false },
-                    ].map((node, i, arr) => (
-                      <div key={i} className="flex items-center gap-3 relative">
-                        {i < arr.length - 1 && (
-                          <div className="absolute left-[11px] top-7 w-[1.5px] h-4 bg-slate-100" />
-                        )}
-                        <div className={`w-[22px] h-[22px] rounded-full shrink-0 flex items-center justify-center border-2 z-10
-                          ${node.active ? 'bg-[#C8102E] border-[#C8102E]/30 shadow-[0_0_0_4px_rgba(200,16,46,0.1)]' : 'bg-slate-100 border-white'}`}>
-                          {node.active && <div className="w-2 h-2 bg-white rounded-full" />}
-                        </div>
-                        <div className={`flex-1 px-3.5 py-2.5 rounded-xl text-left ${node.active
-                          ? 'bg-[#C8102E]/5 border border-[#C8102E]/10'
-                          : 'bg-slate-50/50 border border-slate-100'}`}>
-                          <p className={`text-[10px] font-black uppercase tracking-wider ${node.active ? 'text-[#C8102E]' : 'text-slate-400'}`}>{node.label}</p>
-                          <p className="text-[9px] text-slate-400 font-semibold mt-0.5 truncate">{node.sub}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Skills / responsibilities */}
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                  <div className="px-5 py-3.5 border-b border-slate-50 flex items-center gap-2">
-                    <div className="w-1 h-4 rounded-full bg-amber-400" />
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-[3px]">Responsibilities</span>
-                  </div>
-                  <div className="px-5 py-4 flex flex-wrap gap-2">
-                    {['Operational Strategy', 'Resource Management', 'Cross-Entity Liaison', 'Treasury Support'].map((tag, i) => (
-                      <span key={i} className="px-3 py-1.5 bg-slate-50 border border-slate-100 text-slate-600 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5">
-                        <div className="w-1 h-1 rounded-full bg-amber-400" />
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Same subsidiary colleagues */}
-                {employees.filter(e => e.subsidiary_name === selectedUser.subsidiary_name && e.id !== selectedUser.id).length > 0 && (
-                  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                    <div className="px-5 py-3.5 border-b border-slate-50 flex items-center gap-2">
-                      <div className="w-1 h-4 rounded-full bg-emerald-400" />
-                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-[3px]">Colleagues</span>
-                    </div>
-                    <div className="px-5 py-4 flex gap-3 overflow-x-auto no-scrollbar">
-                      {employees.filter(e => e.subsidiary_name === selectedUser.subsidiary_name && e.id !== selectedUser.id).slice(0, 6).map((e, i) => (
-                        <motion.div
-                          key={i}
-                          whileHover={{ y: -4 }}
-                          onClick={() => setSelectedUser(e)}
-                          className="min-w-[68px] text-center cursor-pointer group"
-                        >
-                          <div className="w-12 h-12 mx-auto rounded-xl overflow-hidden border-2 border-white shadow-sm group-hover:border-indigo-200 group-hover:shadow-md transition-all duration-200">
-                            <img src={e.profile_pic || `https://ui-avatars.com/api/?name=${encodeURIComponent(e.full_name)}&background=C8102E&color=fff&bold=true`} className="w-full h-full object-cover" alt={e.full_name} />
-                          </div>
-                          <p className="text-[8px] font-black text-slate-500 uppercase mt-1.5 leading-tight truncate group-hover:text-indigo-600 transition-colors">{e.full_name.split(' ')[0]}</p>
-                        </motion.div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-              </div>
-
-              {/* ── STICKY ACTION BAR ── */}
-              <div className="sticky bottom-0 bg-white/95 backdrop-blur-xl border-t border-slate-100 p-5 flex flex-col gap-3 shadow-[0_-8px_32px_rgba(0,0,0,0.06)]">
-                <div className="grid grid-cols-2 gap-3">
-                  <button className="flex items-center justify-center gap-2 bg-[#C8102E] hover:bg-[#A00D25] text-white py-3.5 rounded-2xl font-black uppercase tracking-wider text-[10px] transition-all duration-200 shadow-lg shadow-red-900/15 active:scale-95">
-                    <Phone className="w-4 h-4" /> Call Employee
-                  </button>
-                  <button
-                    onClick={() => {
-                      sessionStorage.setItem('quick_chat_partner', JSON.stringify({
-                        id: selectedUser.id,
-                        full_name: selectedUser.full_name,
-                        job_title: selectedUser.job_title,
-                        subsidiary_name: selectedUser.subsidiary_name,
-                        profile_pic: selectedUser.profile_pic
-                      }));
-                      navigate('/messages');
-                    }}
-                    className="flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white py-3.5 rounded-2xl font-black uppercase tracking-wider text-[10px] transition-all duration-200 shadow-lg shadow-slate-900/10 active:scale-95"
-                  >
-                    <MessageSquare className="w-4 h-4" /> Message
-                  </button>
-                </div>
-                <button className="flex items-center justify-center gap-2 bg-slate-50 hover:bg-slate-100 text-slate-500 border border-slate-150 py-3 rounded-2xl font-black uppercase tracking-wider text-[9px] transition-all duration-200 active:scale-95">
-                  <Globe className="w-3.5 h-3.5" /> View Subsidiary Portal
-                </button>
-              </div>
-
-            </motion.div>
+      <section className="overflow-hidden rounded-[22px] border border-[#E8E0D7] bg-white shadow-[0_18px_50px_-40px_rgba(94,45,51,.3)] dark:border-white/[0.07] dark:bg-[#111827]">
+        <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+          <div className="relative min-w-0 flex-1"><Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-red" /><input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Search employees by name, role, department or email..." className="!h-11 !w-full !rounded-xl !border-[#E8E0D7] !bg-brand-ivory/70 !py-0 !pl-11 !pr-4 !text-[11px] dark:!border-white/[0.07] dark:!bg-white/[0.035]" /></div>
+          <div className="flex items-center justify-between gap-2 sm:justify-end">
+            <button onClick={() => setFiltersOpen((open) => !open)} aria-expanded={filtersOpen} className={`relative flex h-10 items-center gap-2 rounded-xl border px-3.5 text-[8px] font-black uppercase tracking-[.1em] transition-all ${filtersOpen ? 'border-brand-red bg-brand-red text-white shadow-lg shadow-brand-red/15' : 'border-[#E8E0D7] bg-white text-text-secondary hover:border-brand-red/30 hover:text-brand-red dark:border-white/[0.07] dark:bg-white/[0.035]'}`}><SlidersHorizontal className="h-3.5 w-3.5" />Filters{(tab === 'mine' || subsidiary !== 'all' || department !== 'all') && <span className={`flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[7px] ${filtersOpen ? 'bg-white text-brand-red' : 'bg-brand-red text-white'}`}>{Number(tab === 'mine') + Number(subsidiary !== 'all') + Number(department !== 'all')}</span>}</button>
+            <div className="flex rounded-xl border border-[#E8E0D7] bg-white p-1 dark:border-white/[0.07] dark:bg-white/[0.035]"><button aria-label="Grid view" onClick={() => setView('grid')} className={`flex h-8 w-8 items-center justify-center rounded-lg ${view === 'grid' ? 'bg-brand-red text-white' : 'text-slate-400 hover:text-brand-red'}`}><Grid2X2 className="h-3.5 w-3.5" /></button><button aria-label="List view" onClick={() => setView('list')} className={`flex h-8 w-8 items-center justify-center rounded-lg ${view === 'list' ? 'bg-brand-red text-white' : 'text-slate-400 hover:text-brand-red'}`}><List className="h-3.5 w-3.5" /></button></div>
           </div>
-        )}
-      </AnimatePresence>
+        </div>
+        <AnimatePresence initial={false}>
+          {filtersOpen && <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: .22 }} className="overflow-hidden border-t border-[#EEE8E0] dark:border-white/[0.06]"><div className="grid grid-cols-1 gap-3 bg-brand-ivory/40 p-4 md:grid-cols-3 dark:bg-white/[0.015]">
+            <div><p className="mb-1.5 text-[7px] font-black uppercase tracking-[.16em] text-text-secondary">Directory scope</p><div className="grid h-10 grid-cols-2 rounded-xl border border-[#E8E0D7] bg-white p-1 dark:border-white/[0.07] dark:bg-white/[0.035]"><button onClick={() => { setTab('all'); setPage(1); }} className={`rounded-lg text-[8px] font-black uppercase tracking-[.08em] ${tab === 'all' ? 'bg-brand-red text-white' : 'text-text-secondary'}`}>All employees</button><button onClick={() => { setTab('mine'); setPage(1); }} disabled={!currentUser?.subsidiary_id} className={`rounded-lg text-[8px] font-black uppercase tracking-[.08em] disabled:opacity-40 ${tab === 'mine' ? 'bg-brand-red text-white' : 'text-text-secondary'}`}>My subsidiary</button></div></div>
+            <label><span className="mb-1.5 block text-[7px] font-black uppercase tracking-[.16em] text-text-secondary">Subsidiary</span><select value={subsidiary} onChange={(event) => { setSubsidiary(event.target.value); setPage(1); }} className="!h-10 !w-full !rounded-xl !border-[#E8E0D7] !bg-white !px-3 !py-0 !text-[10px] !font-bold dark:!border-white/[0.07] dark:!bg-[#111827]"><option value="all">All subsidiaries</option>{subsidiaries.map((item) => <option key={item.id} value={String(item.id)}>{item.name}</option>)}</select></label>
+            <label><span className="mb-1.5 block text-[7px] font-black uppercase tracking-[.16em] text-text-secondary">Department</span><select value={department} onChange={(event) => { setDepartment(event.target.value); setPage(1); }} className="!h-10 !w-full !rounded-xl !border-[#E8E0D7] !bg-white !px-3 !py-0 !text-[10px] !font-bold dark:!border-white/[0.07] dark:!bg-[#111827]"><option value="all">All departments</option>{departments.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+            {(tab === 'mine' || subsidiary !== 'all' || department !== 'all') && <div className="md:col-span-3 flex justify-end"><button onClick={clearFilters} className="flex items-center gap-1.5 text-[8px] font-black uppercase tracking-wider text-brand-red"><X className="h-3 w-3" />Clear all filters</button></div>}
+          </div></motion.div>}
+        </AnimatePresence>
+      </section>
 
-      <style dangerouslySetInnerHTML={{
-        __html: `
-        @keyframes float-slow {
-          0%, 100% { transform: translateY(0) translateX(0); }
-          50% { transform: translateY(-20px) translateX(10px); }
-        }
-        .animate-float-slow {
-          animation: float-slow 8s ease-in-out infinite;
-        }
-        .no-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        .no-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}} />
+      <div className="flex items-center justify-between"><div><h2 className="text-sm font-black text-text-main dark:text-white">{tab === 'mine' ? 'My subsidiary colleagues' : 'All colleagues'}</h2><p className="mt-0.5 text-[9px] font-medium text-text-secondary">{filtered.length} {filtered.length === 1 ? 'person' : 'people'} found</p></div><SlidersHorizontal className="h-4 w-4 text-brand-gold" /></div>
+
+      {visibleEmployees.length ? (
+        <motion.div layout className={view === 'grid' ? 'grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4' : 'space-y-2'}>
+          {visibleEmployees.map((employee, index) => view === 'grid' ? (
+            <motion.article key={employee.id} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * .025 }} onClick={() => setSelected(employee)} className="group cursor-pointer rounded-[22px] border border-[#E8E0D7] bg-white p-4 shadow-[0_15px_40px_-36px_rgba(94,45,51,.4)] transition-all hover:-translate-y-0.5 hover:border-brand-gold/45 hover:shadow-[0_22px_50px_-34px_rgba(158,14,39,.25)] dark:border-white/[0.07] dark:bg-[#111827]">
+              <div className="flex items-start gap-3.5"><img src={avatarUrl(employee)} alt={employee.full_name} className="h-14 w-14 shrink-0 rounded-2xl border border-[#EEE8E0] object-cover" /><div className="min-w-0 flex-1"><h3 className="truncate text-[12px] font-black text-text-main group-hover:text-brand-red dark:text-white">{employee.full_name}</h3><p className="mt-0.5 truncate text-[9px] font-bold text-brand-red">{employee.job_title || roleLabel(employee.role)}</p><p className="mt-2 flex items-center gap-1.5 truncate text-[9px] font-medium text-text-secondary"><Building2 className="h-3 w-3 shrink-0 text-brand-gold" />{employee.subsidiary_name || 'George Steuart Group'}</p></div></div>
+              <div className="mt-4 flex items-center justify-between border-t border-[#EEE8E0] pt-3 dark:border-white/[0.06]"><span className="rounded-lg bg-brand-ivory px-2 py-1 text-[7px] font-black uppercase tracking-wider text-text-secondary dark:bg-white/[0.04]">{employee.department || 'General'}</span><div className="flex gap-1"><a href={employee.email ? `mailto:${employee.email}` : undefined} onClick={(event) => event.stopPropagation()} className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-ivory text-text-secondary hover:bg-brand-red hover:text-white dark:bg-white/[0.04]"><Mail className="h-3.5 w-3.5" /></a><button onClick={(event) => { event.stopPropagation(); openMessage(employee); }} className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-ivory text-text-secondary hover:bg-brand-red hover:text-white dark:bg-white/[0.04]"><MessageSquare className="h-3.5 w-3.5" /></button></div></div>
+            </motion.article>
+          ) : (
+            <motion.article key={employee.id} layout initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} onClick={() => setSelected(employee)} className="group flex cursor-pointer items-center gap-3 rounded-2xl border border-[#E8E0D7] bg-white p-3 transition-all hover:border-brand-gold/45 dark:border-white/[0.07] dark:bg-[#111827]"><img src={avatarUrl(employee)} alt={employee.full_name} className="h-11 w-11 shrink-0 rounded-xl object-cover" /><div className="min-w-0 flex-1"><h3 className="truncate text-[11px] font-black text-text-main group-hover:text-brand-red dark:text-white">{employee.full_name}</h3><p className="mt-0.5 truncate text-[8px] font-bold text-text-secondary">{employee.job_title || roleLabel(employee.role)}</p></div><span className="hidden max-w-[180px] truncate text-[9px] font-bold text-text-secondary md:block">{employee.department || 'General'}</span><span className="hidden max-w-[220px] truncate text-[9px] text-text-secondary lg:block">{employee.subsidiary_name}</span><div className="flex gap-1"><a href={employee.email ? `mailto:${employee.email}` : undefined} onClick={(event) => event.stopPropagation()} className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-ivory text-text-secondary hover:bg-brand-red hover:text-white dark:bg-white/[0.04]"><Mail className="h-3.5 w-3.5" /></a><button onClick={(event) => { event.stopPropagation(); openMessage(employee); }} className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-ivory text-text-secondary hover:bg-brand-red hover:text-white dark:bg-white/[0.04]"><MessageSquare className="h-3.5 w-3.5" /></button></div><ChevronRight className="h-4 w-4 text-slate-300" /></motion.article>
+          ))}
+        </motion.div>
+      ) : (
+        <div className="rounded-[24px] border border-dashed border-[#DCD2C7] bg-white px-6 py-16 text-center dark:border-white/10 dark:bg-[#111827]"><Users className="mx-auto h-8 w-8 text-brand-gold" /><h3 className="mt-3 text-sm font-black text-text-main dark:text-white">No employees found</h3><p className="mt-1 text-[10px] text-text-secondary">Try changing your search or directory filters.</p><button onClick={clearFilters} className="mt-4 text-[8px] font-black uppercase tracking-wider text-brand-red">Clear all filters</button></div>
+      )}
+
+      {totalPages > 1 && <div className="flex flex-col items-center justify-between gap-3 rounded-2xl border border-[#E8E0D7] bg-white px-4 py-3 dark:border-white/[0.07] dark:bg-[#111827] sm:flex-row"><p className="text-[9px] font-medium text-text-secondary">Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)} of {filtered.length}</p><div className="flex items-center gap-2"><button disabled={safePage === 1} onClick={() => setPage(safePage - 1)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#E8E0D7] text-text-secondary disabled:opacity-35 dark:border-white/10"><ChevronLeft className="h-3.5 w-3.5" /></button><span className="min-w-16 text-center text-[9px] font-black text-text-main dark:text-white">{safePage} / {totalPages}</span><button disabled={safePage === totalPages} onClick={() => setPage(safePage + 1)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#E8E0D7] text-text-secondary disabled:opacity-35 dark:border-white/10"><ChevronRight className="h-3.5 w-3.5" /></button></div></div>}
+
+      </> : <CompanyHierarchy employees={employees} subsidiaries={subsidiaries} onSelect={setSelected} onOpenDirectory={() => setMode('directory')} />}
+
+      <AnimatePresence>{selected && <div className="fixed inset-0 z-[100] flex justify-end"><motion.button aria-label="Close profile" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSelected(null)} className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm" /><motion.aside initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 30, stiffness: 260 }} className="relative flex h-full w-full max-w-[440px] flex-col overflow-y-auto bg-brand-ivory shadow-2xl dark:bg-[#0C111D]">
+        <div className="relative bg-gradient-to-br from-brand-red to-brand-red-dark px-6 pb-7 pt-6 text-white"><button onClick={() => setSelected(null)} className="absolute right-5 top-5 flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 hover:bg-white/20"><X className="h-4 w-4" /></button><img src={avatarUrl(selected)} alt={selected.full_name} className="mt-9 h-20 w-20 rounded-[22px] border-2 border-white/20 object-cover shadow-xl" /><h2 className="mt-4 text-xl font-black tracking-tight">{selected.full_name}</h2><p className="mt-1 text-[10px] font-bold text-white/65">{selected.job_title || roleLabel(selected.role)}</p></div>
+        <div className="space-y-4 p-5"><div className="grid grid-cols-2 gap-2"><a href={selected.email ? `mailto:${selected.email}` : undefined} className="flex items-center justify-center gap-2 rounded-xl bg-brand-red py-3 text-[9px] font-black uppercase tracking-wider text-white"><Mail className="h-3.5 w-3.5" />Email</a><button onClick={() => openMessage(selected)} className="flex items-center justify-center gap-2 rounded-xl bg-[#261F20] py-3 text-[9px] font-black uppercase tracking-wider text-white"><MessageSquare className="h-3.5 w-3.5" />Message</button></div>
+          <div className="overflow-hidden rounded-2xl border border-[#E8E0D7] bg-white dark:border-white/[0.07] dark:bg-[#111827]">{[
+            { icon: Building2, label: 'Subsidiary', value: selected.subsidiary_name || 'George Steuart Group' },
+            { icon: Users, label: 'Department', value: selected.department || 'General' },
+            { icon: Mail, label: 'Email', value: selected.email || 'Not available' },
+            { icon: Phone, label: 'Phone', value: selected.phone || 'Not available' },
+            { icon: MapPin, label: 'Location', value: selected.location || 'Sri Lanka' },
+          ].map((item) => <div key={item.label} className="flex items-center gap-3 border-b border-[#EEE8E0] px-4 py-3.5 last:border-0 dark:border-white/[0.06]"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-red-light text-brand-red dark:bg-brand-red/10"><item.icon className="h-3.5 w-3.5" /></span><div className="min-w-0"><p className="text-[7px] font-black uppercase tracking-wider text-text-secondary">{item.label}</p><p className="mt-0.5 truncate text-[10px] font-bold text-text-main dark:text-white">{item.value}</p></div></div>)}</div>
+        </div>
+      </motion.aside></div>}</AnimatePresence>
     </div>
   );
 };

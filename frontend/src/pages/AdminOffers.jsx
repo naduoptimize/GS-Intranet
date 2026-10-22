@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import AdminPageHeader from '../components/AdminPageHeader';
 import {
   Gift, Search, Plus, Trash2, Edit2, X, Check, AlertCircle,
   Building2, RefreshCw, Calendar, Sparkles, TrendingUp,
@@ -30,7 +31,9 @@ const inputCls = "w-full px-5 py-3.5 bg-slate-50/50 dark:bg-[#0B0F19]/60 backdro
 
 export default function AdminOffers() {
   const { user } = useAuth();
-  const isSuperAdmin = user?.role === 'super_admin';
+  const isSuperOrGroupAdmin = user?.role === 'superadmin' || user?.role === 'super_admin' || user?.role === 'groupadmin' || user?.role === 'group_admin';
+  const isSubAdmin = user?.role === 'subadmin' || user?.role === 'sub_admin';
+  const isSuperAdmin = isSuperOrGroupAdmin;
   const fileInputRef = useRef(null);
 
   const [offers, setOffers]         = useState([]);
@@ -49,7 +52,7 @@ export default function AdminOffers() {
 
   const [form, setForm] = useState({
     ...BLANK_FORM,
-    subsidiary_id: isSuperAdmin ? '' : (user?.subsidiary_id || ''),
+    subsidiary_id: isSuperOrGroupAdmin ? '' : (user?.subsidiary_id || ''),
   });
 
   // ── Data ────────────────────────────────────────────────────────────────────
@@ -60,14 +63,14 @@ export default function AdminOffers() {
         axios.get(`${API}/offers`, {
           params: { role: user.role, subsidiary_id: user.subsidiary_id },
         }),
-        isSuperAdmin ? axios.get(`${API}/subsidiaries`) : Promise.resolve({ data: [] }),
+        isSuperOrGroupAdmin ? axios.get(`${API}/subsidiaries`) : Promise.resolve({ data: [] }),
       ]);
       let fetched = offersRes.data;
-      if (!isSuperAdmin) {
+      if (isSubAdmin) {
         fetched = fetched.filter(o => Number(o.subsidiary_id) === Number(user.subsidiary_id));
       }
       setOffers(fetched);
-      if (isSuperAdmin) setSubsidiaries(subsRes.data);
+      if (isSuperOrGroupAdmin) setSubsidiaries(subsRes.data);
     } catch (err) {
       console.error(err);
       showToast('Failed to load offers', 'error');
@@ -141,8 +144,10 @@ export default function AdminOffers() {
     try {
       const payload = {
         ...form,
-        subsidiary_id: isSuperAdmin ? (form.subsidiary_id || null) : user.subsidiary_id,
+        subsidiary_id: isSuperOrGroupAdmin ? (form.subsidiary_id || null) : user.subsidiary_id,
         image_url: form.image_url || null,
+        role: user.role,
+        user_subsidiary_id: user.subsidiary_id
       };
       if (editingOffer) {
         await axios.put(`${API}/offers/${editingOffer.id}`, payload);
@@ -165,7 +170,7 @@ export default function AdminOffers() {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
-      await axios.delete(`${API}/offers/${deleteTarget.id}`);
+      await axios.delete(`${API}/offers/${deleteTarget.id}?role=${user.role}&user_subsidiary_id=${user.subsidiary_id}`);
       showToast('Offer deleted ✓');
       setDeleteTarget(null);
       loadData();
@@ -207,35 +212,16 @@ export default function AdminOffers() {
         )}
       </AnimatePresence>
 
-      {/* ── HERO BANNER ── */}
-      <div className="px-4 sm:px-8 pt-4 sm:pt-8">
-        <div className="relative h-[220px] sm:h-[300px] md:h-[350px] w-full overflow-hidden rounded-[24px] sm:rounded-[36px] shadow-xl group">
-          <img
-            src="/admin_premium_cover.png"
-            alt="Offers Manager"
-            className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
-            onError={e => { e.target.src = 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?auto=format&fit=crop&q=80&w=1600'; }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-900/40 to-transparent" />
-          <div className="absolute inset-0 flex items-center px-6 sm:px-10 md:px-16">
-            <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6 }} className="max-w-2xl">
-              <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-brand-red/20 backdrop-blur-md border border-brand-red/30 rounded-full mb-2.5 sm:mb-3.5 animate-pulse">
-                <div className="w-1.5 h-1.5 bg-brand-red rounded-full" />
-                <span className="text-[8px] font-black text-brand-red uppercase tracking-[3px]">Staff Benefits & Deals</span>
-              </div>
-              <h1 className="text-2xl sm:text-3xl md:text-5xl font-black text-white tracking-tighter leading-none mb-2">
-                Offers &amp; <span className="text-brand-red">Promotions</span>
-              </h1>
-              <p className="text-white/60 text-xs sm:text-sm font-semibold leading-relaxed max-w-lg hidden sm:block">
-                Manage exclusive employee benefits, group discounts, and partner deals. Publish globally or target specific subsidiaries.
-              </p>
-            </motion.div>
-          </div>
-        </div>
+      <div className="mb-6">
+        <AdminPageHeader
+          icon={Gift}
+          title="Offers Manager"
+          description="Manage employee benefits, group discounts, and partner promotions for all or selected subsidiaries."
+        />
       </div>
 
       {/* ── MAIN CONTENT ── */}
-      <div className="px-4 sm:px-8 md:px-10 -mt-10 sm:-mt-16 relative z-10">
+      <div className="px-4 sm:px-8 md:px-10 mt-6">
 
         {/* ── STATS ── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-5 mb-8">
